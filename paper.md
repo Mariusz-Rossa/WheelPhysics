@@ -63,7 +63,7 @@ object can make this structure explicit and classifiable.
 
 # Framework Design
 
-The framework is organised around a strict separation between two layers.
+The framework is implemented in Python using the SymPy computer algebra system [@sympy2017], and is organised around a strict separation between two layers.
 
 **The algebraic layer** (`wheel_algebra`) implements Wheel Algebra axiomatically. At any
 singular point it returns $\bot$, unconditionally and without appeal to limits. This layer
@@ -91,6 +91,8 @@ Cauchy residue $\mathrm{res}(f, x_0) = \lim_{x \to x_0}(x - x_0) f(x)$.
 A formal type system (`SingularityType`, 12 types) encodes physical distinctions:
 coordinate artefacts (`COORDINATE`), confirmed physical singularities (`PHYSICAL`),
 logarithmic divergences (`LOGARITHMIC`), and complex poles (`COMPLEX_POLE`), among others.
+
+The framework deliberately uses Carlström's formulation [@carlstrom2004] rather than directed-infinity extensions [@meyenburg2025], recovering directional pole structure at the analytic layer instead of encoding it in the base algebra.
 
 One non-trivial implementation issue deserves mention: SymPy's symbolic simplifier
 can silently mask zeros in denominators before substitution, causing the framework to
