@@ -165,7 +165,8 @@ python main.py --db               # equation catalogue
 
 ## Preprint
 
-*Coming soon.* Draft available in [`Preprint.md`](Preprint.md).
+Draft v0.2 available in [`Preprint.md`](Preprint.md) and on Zenodo:
+[https://doi.org/10.5281/zenodo.20305458](https://doi.org/10.5281/zenodo.20305458)
 
 **Title:** *A Singularity-Aware Symbolic Algebra Framework for Physical Equations*
 
@@ -175,7 +176,7 @@ python main.py --db               # equation catalogue
 
 Wheel Algebra was introduced by Carlström (2004) as an algebraic extension of
 commutative rings admitting division by zero. This project uses Carlström's formulation
-(single absorbing element ⊥) rather than Meyenburg's (2023) semi-ring extension
+(single absorbing element ⊥) rather than Meyenburg's (2025) semi-ring extension
 (directed infinities ±∞). The directional structure of poles is recovered by the
 analytic layer (`wheel_calculus`) rather than built into the base algebra.
 
