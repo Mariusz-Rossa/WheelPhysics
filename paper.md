@@ -80,13 +80,13 @@ $$
 \text{Finite}(v) & \text{regular point} \\
 \bot \xrightarrow{\text{0/0, Taylor}} \text{RemovableSingularity}(\lim = v) \\
 \bot \xrightarrow{\text{true pole, Cauchy}} \text{PoleSingularity}(\text{order},\, \text{res},\, \text{Laurent}) \\
-\bot & \text{irreducible (essential, logarithmic, \ldots)}
+\bot & \text{irreducible (essential, logarithmic, ...)}
 \end{cases}
 $$
 
 For true poles, the analytic layer computes the pole order $n$ by testing
 $\lim_{x \to x_0}(x - x_0)^n f(x)$, and for simple poles ($n = 1$) computes the
-Cauchy residue $\operatorname{res}(f, x_0) = \lim_{x \to x_0}(x - x_0) f(x)$.
+Cauchy residue $\mathrm{res}(f, x_0) = \lim_{x \to x_0}(x - x_0) f(x)$.
 
 A formal type system (`SingularityType`, 12 types) encodes physical distinctions:
 coordinate artefacts (`COORDINATE`), confirmed physical singularities (`PHYSICAL`),
@@ -117,8 +117,8 @@ maps cleanly onto the $\bot$/finite distinction in the algebra.
 
 **Resonance–on-shell isomorphism.** Residue analysis reveals a structural identity:
 
-$$\operatorname{res}\!\left(\frac{1}{p^2 - m^2},\, p = m\right) = \frac{1}{2m}, \qquad
-\operatorname{res}\!\left(\frac{1}{\omega^2 - \omega_0^2},\, \omega = \omega_0\right) = \frac{1}{2\omega_0}$$
+$$\mathrm{res}\!\left(\frac{1}{p^2 - m^2},\, p = m\right) = \frac{1}{2m}, \qquad
+\mathrm{res}\!\left(\frac{1}{\omega^2 - \omega_0^2},\, \omega = \omega_0\right) = \frac{1}{2\omega_0}$$
 
 A classical harmonic oscillator at resonance and a relativistic quantum field theory
 propagator at the on-shell condition are described by algebraically identical residue
