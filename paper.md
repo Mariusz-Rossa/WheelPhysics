@@ -159,4 +159,4 @@ asymptotic (Poincaré) series rather than Taylor expansion for further classific
 
 No funding was received for this work.
 
-# References
+# References 
