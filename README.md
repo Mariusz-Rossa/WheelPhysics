@@ -188,7 +188,7 @@ after first release):
 
 ```bibtex
 @software{wheelphysics_2026,
-  author    = {[Author]},
+  author    = {Rossa Mariusz},
   title     = {WheelPhysics: A Singularity-Aware Symbolic Algebra Framework},
   month     = may,
   year      = 2026,
