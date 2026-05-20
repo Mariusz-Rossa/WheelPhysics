@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WheelPhysics Dashboard</title>
+<style>
+:root {
+  --bg:#0d0d0f; --bg2:#16161a; --bg3:#1e1e24;
+  --border:rgba(255,255,255,0.07); --bord2:rgba(255,255,255,0.13);
+  --text:#e8e8ec; --muted:#888896; --dim:#4a4a5a;
+  --purple:#8b7ff0; --purp2:rgba(139,127,240,0.15);
+  --green:#5db87a; --amber:#d4a84b; --red:#e05c5c; --teal:#3db89a;
+  --mono:'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  --sans:'Inter','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6}
+body{max-width:1120px;margin:0 auto;padding:2rem 1.5rem 5rem}
+
+/* ── Drop zone ── */
+#dropzone{border:1.5px dashed var(--bord2);border-radius:12px;padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:2rem}
+#dropzone.over{border-color:var(--purple);background:rgba(139,127,240,.06)}
+#dropzone.loaded{border-style:solid;border-color:var(--green);background:rgba(93,184,122,.04);padding:1rem 2rem}
+.drop-icon{font-size:2.8rem;margin-bottom:.75rem;color:var(--dim)}
+.drop-title{font-size:1rem;color:var(--text);margin-bottom:.3rem}
+.drop-sub{font-size:.78rem;color:var(--muted)}
+.drop-ok{font-family:var(--mono);font-size:.8rem;color:var(--green)}
+#fileInput{display:none}
+
+/* ── Dashboard ── */
+#dashboard{display:none}
+
+/* ── Header ── */
+.header{border-bottom:1px solid var(--bord2);padding-bottom:1.25rem;margin-bottom:2rem}
+.header-top{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap}
+h1{font-family:var(--mono);font-size:1.05rem;font-weight:500;color:var(--purple);letter-spacing:.02em}
+.ver{font-family:var(--mono);font-size:.72rem;color:var(--dim);background:var(--bg3);padding:2px 8px;border-radius:4px;border:1px solid var(--border)}
+.subtitle{font-size:.78rem;color:var(--muted);margin-top:.35rem}
+
+.label{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:.7rem}
+
+/* ── Metrics ── */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:2rem}
+.metric{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.9rem 1.1rem}
+.metric-val{font-family:var(--mono);font-size:2rem;font-weight:500;line-height:1}
+.metric-lbl{font-size:.73rem;color:var(--muted);margin-top:5px}
+.metric-sub{font-size:.67rem;color:var(--dim);margin-top:2px}
+
+/* ── Charts ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:2rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.25rem}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:.7rem;color:var(--muted)}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-sq{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+/* ── Findings ── */
+.findings{display:flex;flex-direction:column;gap:8px;margin-bottom:2rem}
+.finding{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;display:flex;gap:12px;align-items:flex-start}
+.fdot{width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0;margin-top:7px}
+.fdot.g{background:var(--green)}.fdot.a{background:var(--amber)}.fdot.r{background:var(--red)}
+.ftitle{font-size:.8rem;font-weight:500}
+.fdesc{font-size:.73rem;color:var(--muted);margin-top:3px}
+.fbadge{font-family:var(--mono);font-size:.62rem;padding:2px 7px;border-radius:3px;border:1px solid var(--bord2);color:var(--dim);flex-shrink:0;margin-left:auto;white-space:nowrap}
+
+/* ── Warn / Info boxes ── */
+.warn-box{border-left:2px solid var(--amber);background:rgba(212,168,75,.06);border-radius:0 8px 8px 0;padding:.85rem 1rem;margin-bottom:2rem;font-size:.76rem;color:var(--muted);line-height:1.6}
+.warn-box strong{color:var(--amber);font-weight:500}
+code{font-family:var(--mono);font-size:.8em;background:var(--bg3);padding:1px 5px;border-radius:3px;color:var(--teal)}
+
+/* ── Filters ── */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.fbtn{font-family:var(--mono);font-size:.66rem;padding:4px 10px;border-radius:4px;border:1px solid var(--bord2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .15s}
+.fbtn:hover{border-color:var(--purple);color:var(--purple)}
+.fbtn.active{border-color:var(--purple);background:var(--purp2);color:var(--purple)}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse;font-size:.74rem}
+thead th{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;text-align:left;padding:0 .75rem .6rem;border-bottom:1px solid var(--bord2);font-weight:400}
+tbody td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top}
+tbody td:first-child{color:var(--text)}
+tbody tr:hover td{background:var(--bg3)}
+.badge{font-family:var(--mono);font-size:.63rem;padding:2px 7px;border-radius:3px;display:inline-block;white-space:nowrap}
+.b-bot{background:rgba(139,127,240,.15);color:var(--purple);border:1px solid rgba(139,127,240,.3)}
+.b-ok{background:rgba(93,184,122,.12);color:var(--green);border:1px solid rgba(93,184,122,.25)}
+.b-mix{background:rgba(212,168,75,.12);color:var(--amber);border:1px solid rgba(212,168,75,.25)}
+.dtag{font-family:var(--mono);font-size:.6rem;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--dim);border:1px solid var(--border)}
+.clval{font-family:var(--mono);font-size:.7rem}
+.cl-zoo{color:var(--muted)}.cl-nan{color:var(--amber)}.cl-fin{color:var(--green)}
+.wval{font-family:var(--mono);font-size:.72rem}
+.wbot{color:var(--purple)}.wfin{color:var(--green)}
+
+/* ── Bottom stats ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:2rem}
+
+.footer{font-family:var(--mono);font-size:.66rem;color:var(--dim);border-top:1px solid var(--border);padding-top:1rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+
+@media(max-width:700px){
+  .metrics,.stats-row{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="dropzone" onclick="document.getElementById('fileInput').click()">
+  <div class="drop-icon">⊥</div>
+  <div class="drop-title">Wczytaj wheel_results.json</div>
+  <div class="drop-sub">Przeciągnij plik tutaj lub kliknij, aby wybrać</div>
+</div>
+<input type="file" id="fileInput" accept=".json">
+
+<div id="dashboard">
+  <div class="header">
+    <div class="header-top">
+      <h1>WheelPhysics</h1>
+      <span class="ver" id="verBadge"></span>
+    </div>
+    <div class="subtitle" id="headerSub"></div>
+  </div>
+
+  <div class="label">Podsumowanie</div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-val" id="mTotal" style="color:var(--text)"></div><div class="metric-lbl">równań w bazie</div><div class="metric-sub" id="mDomains"></div></div>
+    <div class="metric"><div class="metric-val" id="mBottom" style="color:var(--purple)"></div><div class="metric-lbl">wynik ⊥</div><div class="metric-sub" id="mBottomPct"></div></div>
+    <div class="metric"><div class="metric-val" id="mFinite" style="color:var(--green)"></div><div class="metric-lbl">wynik ✓ skończony</div><div class="metric-sub" id="mFiniteSub"></div></div>
+    <div class="metric"><div class="metric-val" id="mMixed" style="color:var(--amber)"></div><div class="metric-lbl">wynik ± mieszany</div><div class="metric-sub">różne punkty eq.</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="label">Wyniki według dziedziny</div>
+      <div class="legend">
+        <span class="leg"><span class="leg-sq" style="background:var(--purple)"></span>⊥ bottom</span>
+        <span class="leg"><span class="leg-sq" style="background:var(--green)"></span>✓ skończone</span>
+        <span class="leg"><span class="leg-sq" style="background:var(--amber)"></span>± mieszane</span>
+      </div>
+      <canvas id="domainChart" style="display:block;width:100%"></canvas>
+    </div>
+    <div class="card">
+      <div class="label">Klasyczne wyniki w punktach osobliwych</div>
+      <div class="legend">
+        <span class="leg"><span class="leg-sq" style="background:var(--purple)"></span>zoo (±∞)</span>
+        <span class="leg"><span class="leg-sq" style="background:var(--amber)"></span>nan (0/0)</span>
+        <span class="leg"><span class="leg-sq" style="background:var(--green)"></span>skończone</span>
+      </div>
+      <canvas id="typeChart" style="display:block;width:100%"></canvas>
+    </div>
+  </div>
+
+  <div class="label">Odkrycia z analizy</div>
+  <div class="findings" id="findings"></div>
+
+  <div class="warn-box">
+    <strong>⚠ Granica metody — kontrprzykłady:</strong>
+    Wheel jest algebrą (podstawienie punktowe), nie analizą matematyczną.
+    Formy 0/0 z istniejącą granicą skończoną (<code>sinc</code>, <code>sinc²</code>, <code>(1-cos)/x²</code>) dają ⊥ zamiast wartości granicznej.
+    Cel: moduł <code>wheel_calculus.py</code> z rozwinięciem Taylora — trójpodział: skończone / ⊥ nieusuwalna / usuwalna.
+  </div>
+
+  <div class="label">Wszystkie równania</div>
+  <div class="filters" id="filterBar"></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th style="width:24%">Równanie</th>
+        <th style="width:7%">Domena</th>
+        <th style="width:6%">Wynik</th>
+        <th style="width:20%">Punkt osobliwy</th>
+        <th style="width:11%">Klasycznie</th>
+        <th style="width:11%">Wheel</th>
+        <th style="width:21%">Hipoteza</th>
+      </tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="label">Spójność systemu</div>
+  <div class="stats-row">
+    <div class="metric"><div class="metric-val" style="color:var(--green)">100%</div><div class="metric-lbl">consistency check</div><div class="metric-sub">po naprawce AST</div></div>
+    <div class="metric"><div class="metric-val">11/11</div><div class="metric-lbl">aksjomaty Wheel</div><div class="metric-sub">Carlström (2004)</div></div>
+    <div class="metric"><div class="metric-val" id="sTotalPts"></div><div class="metric-lbl">punktów osobliwych</div><div class="metric-sub">przeanalizowanych</div></div>
+    <div class="metric"><div class="metric-val" id="sCounterEx" style="color:var(--amber)"></div><div class="metric-lbl">kontrprzykładów 0/0</div><div class="metric-sub">Wheel ≠ granica</div></div>
+  </div>
+
+  <div class="footer">
+    <span>WheelPhysics · python main.py --regen-log</span>
+    <span id="footerTs"></span>
+  </div>
+</div>
+
+<script>
+/* ═══ FILE LOADING ═══════════════════════════════════════════ */
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('fileInput');
+
+['dragover','dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave','dragend'].forEach(ev => dz.addEventListener(ev, () => dz.classList.remove('over')));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+
+function loadFile(file) {
+  if (!file.name.endsWith('.json')) { alert('Potrzebuję pliku .json'); return; }
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) { alert('JSON musi być tablicą wpisów'); return; }
+      dz.classList.add('loaded');
+      dz.innerHTML = `<div class="drop-ok">✓ ${file.name} &nbsp;·&nbsp; ${data.length} równań &nbsp;&nbsp; <span style="color:var(--muted);cursor:pointer;text-decoration:underline" onclick="document.getElementById('fileInput').click()">wczytaj inny plik</span></div>`;
+      render(data);
+    } catch(err) { alert('Błąd JSON: ' + err.message); }
+  };
+  r.readAsText(file, 'utf-8');
+}
+
+/* ═══ RENDER ═════════════════════════════════════════════════ */
+function render(data) {
+  document.getElementById('dashboard').style.display = 'block';
+
+  /* stats */
+  const byV = {BOTTOM:0,FINITE:0,MIXED:0};
+  const byD = {};
+  let pts=0, zoo=0, nan=0, fin=0, cx=0;
+
+  data.forEach(eq => {
+    byV[eq.wheel_verdict] = (byV[eq.wheel_verdict]||0)+1;
+    const d = eq.domain;
+    byD[d] = byD[d] || {BOTTOM:0,FINITE:0,MIXED:0,total:0};
+    byD[d][eq.wheel_verdict]++;
+    byD[d].total++;
+    (eq.singular_points||[]).forEach(sp => {
+      pts++;
+      if (sp.classical==='zoo') zoo++;
+      else if (sp.classical==='nan') nan++;
+      else fin++;
+    });
+    if (eq.wheel_verdict==='BOTTOM' && (eq.singular_points||[]).some(s=>s.classical==='nan')) cx++;
+  });
+
+  const domains = Object.keys(byD).sort();
+  const ts = data[0]?.timestamp || '';
+
+  /* header */
+  document.getElementById('verBadge').textContent = ts ? ts.slice(0,10) : 'dane załadowane';
+  document.getElementById('headerSub').textContent =
+    `Analiza osobliwości w fizyce teoretycznej przez Wheel Algebra · ${data.length} równań · ${pts} punktów · ${domains.length} dziedzin`;
+
+  /* metrics */
+  setText('mTotal', data.length);
+  setText('mDomains', domains.join(', '));
+  setText('mBottom', byV.BOTTOM);
+  setText('mBottomPct', ((byV.BOTTOM/data.length)*100).toFixed(1)+'% — osobliwości');
+  setText('mFinite', byV.FINITE);
+  setText('mFiniteSub', byV.FINITE ? 'off-shell / bieguny zespolone' : '—');
+  setText('mMixed', byV.MIXED);
+  setText('sTotalPts', pts);
+  setText('sCounterEx', cx);
+  setText('footerTs', ts ? 'timestamp: '+ts : '');
+
+  /* findings */
+  buildFindings(data, byV, byD);
+
+  /* charts */
+  requestAnimationFrame(() => {
+    drawBar('domainChart', domains,
+      [
+        {data: domains.map(d=>byD[d].BOTTOM), color:'#7F77DD'},
+        {data: domains.map(d=>byD[d].FINITE), color:'#5db87a'},
+        {data: domains.map(d=>byD[d].MIXED),  color:'#d4a84b'},
+      ]
+    );
+    drawDonut('typeChart', [zoo,nan,fin], ['#7F77DD','#d4a84b','#5db87a'],
+      [`zoo ±∞ (${zoo})`,`nan 0/0 (${nan})`,`skończone (${fin})`]);
+  });
+
+  /* filters + table */
+  buildFilters(data, byV, byD, domains);
+  renderTable(data, 'ALL');
+}
+
+function setText(id, val) { document.getElementById(id).textContent = val; }
+
+/* ═══ FINDINGS (auto-generowane z danych) ══════════════════ */
+function buildFindings(data, byV, byD) {
+  const box = document.getElementById('findings');
+  box.innerHTML = '';
+
+  const add = (dot, title, desc, badge) => {
+    const d = document.createElement('div');
+    d.className = 'finding';
+    d.innerHTML = `<span class="fdot ${dot}"></span><div><div class="ftitle">${title}</div><div class="fdesc">${desc}</div></div><span class="fbadge">${badge}</span>`;
+    box.appendChild(d);
+  };
+
+  /* on-shell pattern */
+  const onShell = data.filter(eq => eq.domain==='QFT' && (eq.singular_points||[]).some(s=>s.note&&s.note.includes('on-shell')&&s.wheel_result==='⊥'));
+  if (onShell.length) add('', `On-shell = ⊥ w ${onShell.length} propagatorach QFT`, 'Off-shell pozostaje skończony. Hipoteza: ⊥ on-shell = algebraiczna definicja obserwowalności w QFT.', 'QFT');
+
+  /* FINITE */
+  const finite = data.filter(eq=>eq.wheel_verdict==='FINITE');
+  if (finite.length) add('g', `${finite.length} równania z wynikiem FINITE — Wheel nie trafia w biegun`, finite.map(e=>e.equation_name).join(', ')+'.', 'nowe');
+
+  /* MIXED */
+  const mixed = data.filter(eq=>eq.wheel_verdict==='MIXED');
+  if (mixed.length) add('a', `${mixed.length} równania MIXED — różne punkty tego samego równania`, mixed.map(e=>e.equation_name).join(', ')+'. Wheel rozróżnia typy osobliwości wewnątrz jednego wyrażenia.', 'GR+QFT');
+
+  /* Kretschmann */
+  const kret = data.find(eq=>eq.equation_name.includes('Kretschmann'));
+  if (kret) add('', 'Niezmiennik Kretschmanna: odróżnia osobliwość fizyczną od artefaktu układu', 'K(r=r_s) = 12/r_s⁴ skończony (artefakt). K(r=0) = ⊥ (osobliwość fizyczna). Najsilniejszy wynik w sektorze GR.', 'GR');
+
+  /* izomorfizm rezonans↔on-shell */
+  const rez = data.find(eq=>eq.equation_name.includes('Rezonans'));
+  const prop = data.find(eq=>eq.equation_name.includes('skalarny'));
+  if (rez && prop) add('g', 'Izomorfizm: rezonans klasyczny ↔ on-shell kwantowy', '1/(ω²−ω₀²) i 1/(p²−m²) — identyczna struktura algebraiczna. Rezonans = on-shell oscylatora.', 'CLASS↔QFT');
+
+  /* kontrprzykłady */
+  const counter = data.filter(eq=>eq.wheel_verdict==='BOTTOM'&&(eq.singular_points||[]).some(s=>s.classical==='nan'));
+  if (counter.length) add('a', `${counter.length} form 0/0 (nan klasycznie) → Wheel daje ⊥`, 'W tym: '+counter.map(e=>e.equation_name).join(', ')+'. Cel: wheel_calculus.py z rozwinięciem Taylora.', 'MATH');
+
+  /* nowe typy biegunów */
+  const gluon = data.find(eq=>eq.equation_name.includes('gluonu'));
+  if (gluon) add('r', 'NOWY TYP: biegun logarytmiczny (propagator gluonu QCD)', 'Wheel wykrywa biegun Landaua k²=μ²·exp(-1/αs) — pierwszy biegun niealgabraiczny w bazie. Wheel dotąd testowany tylko na 1/xⁿ.', 'QFT·QCD');
+}
+
+/* ═══ FILTERS ═══════════════════════════════════════════════ */
+function buildFilters(data, byV, byD, domains) {
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = '';
+  const verdicts = ['BOTTOM','MIXED','FINITE'];
+  const btns = [
+    ['ALL', `Wszystkie (${data.length})`],
+    ...domains.map(d=>[d,`${d} (${byD[d].total})`]),
+    ...verdicts.map(v=>[v,`${v==='BOTTOM'?'⊥':v==='MIXED'?'±':'✓'} (${byV[v]||0})`])
+  ];
+  btns.forEach(([key,label]) => {
+    const b = document.createElement('button');
+    b.className = 'fbtn' + (key==='ALL'?' active':'');
+    b.textContent = label;
+    b.onclick = () => {
+      document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      renderTable(data, key);
+    };
+    bar.appendChild(b);
+  });
+}
+
+/* ═══ TABLE ══════════════════════════════════════════════════ */
+function wCell(w) {
+  if (w==='⊥') return `<span class="wval wbot">⊥</span>`;
+  const s = String(w||'');
+  const disp = s.length>22 ? s.slice(0,20)+'…' : s;
+  return `<span class="wval wfin" title="${s}">${disp}</span>`;
+}
+function clCell(cl) {
+  if (cl==='zoo') return `<span class="clval cl-zoo">zoo (±∞)</span>`;
+  if (cl==='nan') return `<span class="clval cl-nan">nan (0/0)</span>`;
+  const s=String(cl||''); const d=s.length>18?s.slice(0,16)+'…':s;
+  return `<span class="clval cl-fin" title="${s}">${d}</span>`;
+}
+function vBadge(v) {
+  if (v==='BOTTOM') return '<span class="badge b-bot">⊥</span>';
+  if (v==='FINITE') return '<span class="badge b-ok">✓</span>';
+  if (v==='MIXED')  return '<span class="badge b-mix">±</span>';
+  return v;
+}
+
+function renderTable(data, filter) {
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+  const VERDICTS = ['BOTTOM','MIXED','FINITE'];
+  const rows = data.filter(eq =>
+    filter==='ALL' ? true :
+    VERDICTS.includes(filter) ? eq.wheel_verdict===filter :
+    eq.domain===filter
+  );
+  rows.forEach(eq => {
+    const pts = eq.singular_points||[];
+    const hyp = (eq.hypothesis||'');
+    const hshort = hyp.length>170 ? hyp.slice(0,168)+'…' : hyp;
+    pts.forEach((pt,i) => {
+      const tr = document.createElement('tr');
+      const isBot = pt.wheel_result==='⊥';
+      if (i===0) {
+        tr.innerHTML = `
+          <td rowspan="${pts.length}" style="border-right:1px solid var(--border);font-size:.73rem">
+            ${eq.equation_name}<br>
+            <span style="font-family:var(--mono);font-size:.61rem;color:var(--dim)">${eq.expression_str||''}</span>
+          </td>
+          <td rowspan="${pts.length}" style="border-right:1px solid var(--border)"><span class="dtag">${eq.domain}</span></td>
+          <td rowspan="${pts.length}" style="border-right:1px solid var(--border)">${vBadge(eq.wheel_verdict)}</td>
+          <td style="font-family:var(--mono);font-size:.68rem">${pt.var}=${pt.value}<br><span style="font-size:.62rem;color:var(--dim)">${pt.note||''}</span></td>
+          <td>${clCell(pt.classical)}</td>
+          <td>${wCell(isBot?'⊥':pt.wheel_result)}</td>
+          <td rowspan="${pts.length}" style="font-size:.68rem;color:var(--dim);line-height:1.5">${hshort}</td>`;
+      } else {
+        tr.innerHTML = `
+          <td style="font-family:var(--mono);font-size:.68rem">${pt.var}=${pt.value}<br><span style="font-size:.62rem;color:var(--dim)">${pt.note||''}</span></td>
+          <td>${clCell(pt.classical)}</td>
+          <td>${wCell(isBot?'⊥':pt.wheel_result)}</td>`;
+      }
+      body.appendChild(tr);
+    });
+  });
+  if (!rows.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="7" style="text-align:center;color:var(--dim);padding:2rem">brak wyników dla filtra: ${filter}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+/* ═══ CHARTS ══════════════════════════════════════════════════ */
+function drawBar(id, labels, datasets) {
+  const canvas = document.getElementById(id);
+  const W = canvas.parentElement.clientWidth - 40 || 380;
+  const H = 210;
+  const dpr = devicePixelRatio||1;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const pad={l:30,r:8,t:12,b:28};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  const n=labels.length;
+  const maxVal=Math.max(1,...datasets.flatMap(d=>d.data));
+  const groupW=cw/n;
+  const bw=Math.min(groupW*0.6/datasets.length, 22);
+  const gap=2;
+
+  [.25,.5,.75,1].forEach(f=>{
+    const y=pad.t+ch*(1-f);
+    ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fillRect(pad.l,y,cw,.5);
+    ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.font='9px monospace'; ctx.textAlign='right';
+    ctx.fillText(Math.round(maxVal*f), pad.l-3, y+3);
+  });
+
+  datasets.forEach((ds,di)=>{
+    ds.data.forEach((val,li)=>{
+      if(!val) return;
+      const x=pad.l+li*groupW+groupW*0.15+di*(bw+gap);
+      const bh=(val/maxVal)*ch, y=pad.t+ch-bh;
+      ctx.fillStyle=ds.color;
+      ctx.beginPath(); ctx.roundRect(x,y,bw,bh,[3,3,0,0]); ctx.fill();
+      ctx.fillStyle=ds.color; ctx.font='9px monospace'; ctx.textAlign='center';
+      ctx.fillText(val, x+bw/2, y-2);
+    });
+  });
+
+  ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='11px monospace'; ctx.textAlign='center';
+  labels.forEach((lbl,i)=>ctx.fillText(lbl, pad.l+i*groupW+groupW/2, H-pad.b+16));
+}
+
+function drawDonut(id, values, colors, labels) {
+  const canvas = document.getElementById(id);
+  const W = canvas.parentElement.clientWidth - 40 || 380;
+  const H = 210;
+  const dpr = devicePixelRatio||1;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const cx=W*0.36, cy=H/2, r=Math.min(cx,cy)-14, ri=r*0.55;
+  const total=values.reduce((a,b)=>a+b,0);
+  let angle=-Math.PI/2;
+  values.forEach((v,i)=>{
+    if(!v) return;
+    const sweep=(v/total)*2*Math.PI;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+sweep); ctx.closePath();
+    ctx.fillStyle=colors[i]; ctx.fill();
+    angle+=sweep;
+  });
+  ctx.beginPath(); ctx.arc(cx,cy,ri,0,2*Math.PI); ctx.fillStyle='#16161a'; ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='500 16px monospace'; ctx.textAlign='center';
+  ctx.fillText(total, cx, cy+2);
+  ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.font='9px monospace'; ctx.fillText('pkt', cx, cy+14);
+
+  const lx=W*0.72, ly=cy-(labels.length*22)/2;
+  labels.forEach((lbl,i)=>{
+    ctx.fillStyle=colors[i]; ctx.fillRect(lx,ly+i*22,9,9);
+    ctx.fillStyle='rgba(255,255,255,0.38)'; ctx.font='10px monospace'; ctx.textAlign='left';
+    ctx.fillText(lbl, lx+13, ly+i*22+9);
+  });
+}
+</script>
+</body>
+</html>
