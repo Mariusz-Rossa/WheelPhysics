@@ -2,7 +2,7 @@
 
 **Wheel Algebra applied to singularities in theoretical physics.**
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20305458.svg)](https://doi.org/10.5281/zenodo.20305458)
 ![Status](https://img.shields.io/badge/status-experimental%20research-orange)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 
@@ -193,7 +193,7 @@ after first release):
   month     = may,
   year      = 2026,
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.XXXXXXX},
+  doi       = {10.5281/zenodo.20305458},
   url       = {https://github.com/Mariusz-Rossa/WheelPhysics}
 }
 ```
