@@ -166,7 +166,7 @@ python main.py --db               # equation catalogue
 ## Preprint
 
 Draft v0.2 available in [`Preprint.md`](Preprint.md) and on Zenodo:
-[https://doi.org/10.5281/zenodo.20305458](https://doi.org/10.5281/zenodo.20305458)
+[https://doi.org/10.5281/zenodo.20314153](https://doi.org/10.5281/zenodo.20314153)
 
 **Title:** *A Singularity-Aware Symbolic Algebra Framework for Physical Equations*
 
@@ -184,8 +184,7 @@ analytic layer (`wheel_calculus`) rather than built into the base algebra.
 
 ## Citation
 
-If you use this project in academic work, please cite the Zenodo release (DOI coming
-after first release):
+If you use this project in academic work, please cite the Zenodo release:
 
 ```bibtex
 @software{wheelphysics_2026,

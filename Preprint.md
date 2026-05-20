@@ -3,6 +3,7 @@
 **Draft v0.2 — WheelPhysics Project**
 *Last updated: 2026-05-20*
 *Status: DRAFT — wszystkie sekcje uzupełnione*
+*DOI: 10.5281/zenodo.20314153*
 
 ---
 
