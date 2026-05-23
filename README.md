@@ -200,6 +200,20 @@ If you use this project in academic work, please cite the Zenodo release:
 
 ---
 
+## 🔗 Related Projects
+
+- [ThreeBody](https://github.com/Mariusz-Rossa/ThreeBody) — Framework for numerical simulation and statistical analysis of hierarchical three-body gravitational system (DOI: [10.5281/zenodo.20356331](https://doi.org/10.5281/zenodo.20356331))
+- [CollatzWheel](https://github.com/Mariusz-Rossa/CollatzWheel) — Collatz conjecture through Wheel Algebra (mod 6) (DOI: [10.5281/zenodo.20355730](https://doi.org/10.5281/zenodo.20355730))
+
+---
+
+## 👤 Author
+
+**Mariusz Rossa** — independent researcher  
+ORCID: [0009-0006-1060-2883](https://orcid.org/0009-0006-1060-2883)
+
+---
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
