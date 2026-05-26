@@ -29,6 +29,5 @@ Thumbs.db
 .ipynb_checkpoints/
 
 # Results (generated — commit only intentionally)
-# Uncomment below to exclude generated JSONs:
-# results/wheel_results.json
-# results/calculus_results.json
+results/wheel_results.json
+results/calculus_results.json
