@@ -52,7 +52,7 @@ def run_consistency() -> None:
 def run_calculus(max_order: int = 8) -> None:
     print("\n" + "▓" * 64)
     print("  MODUŁ: wheel_calculus — rozszerzenie analityczne Wheel")
-    print("  Trójpodział: skończone | ⊥ nieusuwalna | ⊥→val usuwalna")
+    print("  Pięciopodział: skończone | usuwalna | biegun alg. | biegun log. | ⊥ fallback")
     print("▓" * 64)
     stats = ConsistencyChecker().run_calculus_suite(max_order=max_order)
     print(f"\n  wheel_calculus wynik globalny: {stats['correct']}/{stats['total']}  ({stats['score']:.0%})")
@@ -136,7 +136,7 @@ def run_research_summary() -> None:
             "Wheel + regularyzacja wymiarowa — ⊥ jako substytut ε=(4-d)/2?",
             "Wheel na rozmaitościach Riemanna — geometria + algebra koła",
             "Interpretacja fizyczna ⊥: czy to stan, zakaz, czy coś trzeciego?",
-            "Bieguny logarytmiczne QCD i zespolone (Green z tłumieniem) — otwarte",
+            "Bieguny zespolone (Green z tłumieniem) — otwarte",
         ],
     }
 
@@ -148,7 +148,7 @@ def run_research_summary() -> None:
             print(f"      • {item}")
 
     print("\n" + "═" * 64)
-    print("  Stan projektu: core/ ✓  scanner/ ✓  physics/ ✓  viz/ ✓  calculus/ ✓")
+    print("  Stan projektu: core/ ✓  scanner/ ✓  physics/ ✓  viz/ ✓  calculus/ ✓  log. poles/ ✓")
     print("═" * 64 + "\n")
 
 
