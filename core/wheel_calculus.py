@@ -10,12 +10,13 @@ Wheel Algebra (wheel_algebra.py) jest algebrą punktową:
 Ten moduł dodaje warstwę analityczną: gdy Wheel zwróci ⊥, diagnozuje
 typ osobliwości i — dla biegunów — oblicza residuum i rząd bieguna.
 
-Czwórpodział wyników (wheel_limit):
+Pięciopodział wyników (wheel_limit):
   ┌──────────────────────────────────────────────────────────────┐
-  │ WheelFinite(value)     — regularny punkt (Wheel OK)          │
-  │ WheelBottom()          — nieusuwalna ⊥ (nieokreślony typ)   │
-  │ RemovableSingularity   — usuwalna: Wheel=⊥, lim=val         │
-  │ PoleSingularity        — biegun: rząd + residuum + Laurent   │
+  │ WheelFinite(value)        — regularny punkt (Wheel OK)       │
+  │ WheelBottom()             — nieusuwalna ⊥ (nieokreślony typ) │
+  │ RemovableSingularity      — usuwalna: Wheel=⊥, lim=val      │
+  │ PoleSingularity           — biegun alg.: rząd + res + Laurent│
+  │ LogarithmicSingularity    — biegun log.: log zeruje mianownik│
   └──────────────────────────────────────────────────────────────┘
 
 Formalny system typów — SingularityType (enum):
@@ -24,7 +25,7 @@ Formalny system typów — SingularityType (enum):
   POLE_SIMPLE  → biegun prosty rząd=1 (res Cauchy zdefiniowane)
   POLE_HIGHER  → biegun wyższego rzędu (res N/A)
   ESSENTIAL    → osobliwość istotna (Picard) — wymaga zewnętrznej analizy
-  LOGARITHMIC  → dywergencja log (QCD) — wymaga zewnętrznej analizy
+  LOGARITHMIC  → ⊥  biegun logarytmiczny: czynnik log zeruje mianownik (QCD)
   BRANCH_POINT → punkt rozgałęzienia — wymaga zewnętrznej analizy
   COORDINATE   → artefakt układu współrzędnych — wymaga niezmienników
   PHYSICAL     → potwierdzona osobliwość fizyczna — wymaga niezmienników
@@ -46,15 +47,37 @@ Referencja: Carlström (2004) "Wheels — On Division by Zero"
 from __future__ import annotations
 
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Obsługa obu wariantów struktury (flat repo i core/ subpackage)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
+# Jeśli repo używa struktury core/, stwórz symlink-like namespace
+try:
+    from wheel_number import WheelNumber, BOTTOM, W, _coerce
+except ImportError:
+    from core.wheel_number import WheelNumber, BOTTOM, W, _coerce  # type: ignore
+
+# Tworzymy tymczasowy moduł 'core' wskazujący na bieżący katalog
+# żeby wheel_algebra.py i sympy_extension.py mogły robić 'from core.xxx'
+import types as _types
+if 'core' not in sys.modules:
+    _core_mod = _types.ModuleType('core')
+    _core_mod.__path__ = [_HERE]
+    _core_mod.__package__ = 'core'
+    sys.modules['core'] = _core_mod
 
 from dataclasses import dataclass, field
 from typing import Optional, Union
 import sympy as sp
 
-from core.wheel_number import WheelNumber, BOTTOM, W, _coerce
-from core.wheel_algebra import WheelAlgebra, _has_division_by_zero_at
-from core.sympy_extension import wheel_subs
+try:
+    from wheel_algebra import WheelAlgebra, _has_division_by_zero_at
+except ImportError:
+    from core.wheel_algebra import WheelAlgebra, _has_division_by_zero_at  # type: ignore
+
+try:
+    from sympy_extension import wheel_subs
+except ImportError:
+    from core.sympy_extension import wheel_subs  # type: ignore
 
 _wa = WheelAlgebra()
 
@@ -187,6 +210,8 @@ def singularity_type_of(result: "WheelCalcResult") -> SingularityType:
     """
     if isinstance(result, RemovableSingularity):
         return SingularityType.REMOVABLE
+    if isinstance(result, LogarithmicSingularity):
+        return SingularityType.LOGARITHMIC
     if isinstance(result, PoleSingularity):
         if result.pole_order == 1:
             return SingularityType.POLE_SIMPLE
@@ -342,8 +367,91 @@ class PoleSingularity:
         return "\n".join(lines)
 
 
+@dataclass
+class LogarithmicSingularity:
+    """
+    Biegun logarytmiczny — Wheel daje ⊥, mianownik zeruje się przez czynnik log.
+
+    Różnica względem PoleSingularity:
+      PoleSingularity  — mianownik to wielomian: (x - x₀)ⁿ
+      LogarithmicSingularity — mianownik zawiera log(x/μ²) który zeruje się
+
+    Przykład: propagator gluonu QCD 1/(k²·(1 + αs·log(k²/μ²)))
+      singular_point     = μ²·exp(-1/αs)   ← biegun Landaua
+      pole_order         = 1               ← biegun prosty (log zeruje liniowo)
+      residue            = 1/αs            ← obliczone przez sp.residue
+      log_factor         = "1 + αs·log(k²/μ²)"  ← czynnik który się zeruje
+      laurent_hint       = "(1/αs) · 1/(k²-k²_L) + O(1)"
+
+    Fizyczne znaczenie:
+      Biegun Landaua QCD pojawia się w skali konfinementu (~ΛQCD).
+      Odpowiednik w QED jest niefizyczny (10^280 GeV).
+      Residuum 1/αs odzwierciedla siłę sprzężenia QCD w punkcie osobliwym.
+
+    Związek z Wheel:
+      Wheel(expr, k2=k2_L) = ⊥  (mianownik → 0, licznik = 1)
+      Typ: LOGARITHMIC — identyfikowany przez obecność log(var) w mianowniku.
+    """
+    expression:    sp.Basic           # oryginalne wyrażenie
+    variables:     list[tuple]        # [(var, point), ...]
+    singular_point: sp.Basic          # wartość zmiennej w biegunieLandaua
+    pole_order:    int                # rząd bieguna (zazwyczaj 1)
+    residue:       Optional[sp.Basic] # residuum (sp.residue)
+    log_factor:    sp.Basic           # czynnik logarytmiczny który się zeruje
+    laurent_hint:  str = ""           # czytelny opis rozwinięcia
+
+    @property
+    def is_bottom(self) -> bool:
+        return True  # ⊥ w sensie Wheel — biegun logarytmiczny jest niesuwalny
+
+    @property
+    def is_logarithmic(self) -> bool:
+        return True
+
+    @property
+    def singularity_type(self) -> SingularityType:
+        return SingularityType.LOGARITHMIC
+
+    def __str__(self) -> str:
+        vars_str = ", ".join(f"{v}→{p}" for v, p in self.variables)
+        res_str = f", res={self.residue}" if self.residue is not None else ""
+        return (
+            f"LogarithmicSingularity("
+            f"rząd={self.pole_order}{res_str}, "
+            f"przy [{vars_str}], log_factor={self.log_factor})"
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def report(self) -> str:
+        """Czytelny raport dla użytkownika / logu."""
+        vars_str = ", ".join(f"{v}→{p}" for v, p in self.variables)
+        lines = [
+            f"  Wyrażenie    : {self.expression}",
+            f"  Punkt        : {vars_str}",
+            f"  Punkt osobl. : {self.singular_point}",
+            f"  Wheel        : ⊥  (biegun log — czynnik log zeruje mianownik)",
+            f"  Typ          : BIEGUN LOGARYTMICZNY (rząd {self.pole_order})",
+            f"  Czynnik log  : {self.log_factor}",
+            f"  Rząd bieguna : {self.pole_order}",
+        ]
+        if self.residue is not None:
+            lines.append(f"  Residuum     : {self.residue}")
+        else:
+            lines.append(f"  Residuum     : N/A")
+        if self.laurent_hint:
+            lines.append(f"  Laurent      : {self.laurent_hint}")
+        lines.append(
+            f"  QCD          : residuum = 1/αs — siła sprzężenia w punkcie Landaua"
+            if self.pole_order == 1 else
+            f"  QCD          : biegun logarytmiczny wyższego rzędu — anomalia"
+        )
+        return "\n".join(lines)
+
+
 # Unia typów zwracanych przez wheel_calculus
-WheelCalcResult = Union[WheelNumber, RemovableSingularity, PoleSingularity]
+WheelCalcResult = Union[WheelNumber, RemovableSingularity, PoleSingularity, LogarithmicSingularity]
 
 
 # ─── Główna funkcja ────────────────────────────────────────────────────────────
@@ -397,6 +505,11 @@ def wheel_limit(
 
     # ── Krok 2: Diagnoza — 0/0 czy prawdziwy biegun? ──────────────────────
     singularity_type = _classify_singularity(expr, subs_dict, verbose)
+
+    if singularity_type == "logarithmic_pole":
+        if verbose:
+            print(f"  Typ: BIEGUN LOGARYTMICZNY (czynnik log zeruje mianownik) → analiza log")
+        return _compute_logarithmic_pole(expr, variables, verbose)
 
     if singularity_type == "pole":
         if verbose:
@@ -468,6 +581,18 @@ def _classify_singularity(
             hasattr(denom_sub, 'is_zero') and denom_sub.is_zero
         ) or denom_sub in (sp.zoo, sp.nan, sp.oo, -sp.oo)
 
+        # Gdy subs daje nan (np. 0*log(0)), użyj sp.limit jako fallback
+        if denom_sub is sp.nan or denom_sub == sp.nan:
+            try:
+                if len(subs_dict) == 1:
+                    v, pt = list(subs_dict.items())[0]
+                    denom_lim = sp.limit(denom, v, pt)
+                    denom_is_zero = (denom_lim == sp.S.Zero)
+                    if verbose:
+                        print(f"    mianownik@subs=nan → sp.limit={denom_lim} {'(→0)' if denom_is_zero else ''}")
+            except Exception:
+                pass
+
         if verbose:
             print(f"    licznik po podstawieniu : {numer_sub} {'(=0)' if numer_is_zero else ''}")
             print(f"    mianownik po podstawieniu: {denom_sub} {'(=0)' if denom_is_zero else ''}")
@@ -475,6 +600,40 @@ def _classify_singularity(
         if numer_is_zero and denom_is_zero:
             return "removable_candidate"
         elif not numer_is_zero and denom_is_zero:
+            # Sprawdź czy biegun pochodzi z czynnika logarytmicznego.
+            # Używamy sp.denom(expr) zamiast sp.fraction(sp.cancel(expr)) —
+            # sp.cancel rozszerza mianownik i niszczy strukturę czynnikową.
+            # sp.denom zachowuje czynniki: k2*(1 + αs·log(k2/μ²)) → [k2, 1+αs·log(...)].
+            #
+            # Dwa przypadki bieguna logarytmicznego:
+            #   (A) Czynnik log zeruje się: 1+αs·log(k2/μ²)=0 → biegun Landaua
+            #   (B) Czynnik log dywerguje i dominuje: log(k2/μ²)→-∞ przy k2→0
+            #       Wtedy k2^n * f → 0 dla każdego n (brak rzędu algebraicznego)
+            try:
+                raw_denom = sp.denom(expr)
+                denom_factors = sp.Mul.make_args(raw_denom)
+                for fac in denom_factors:
+                    if fac.has(sp.log):
+                        # Przypadek A: czynnik log zeruje się w punkcie
+                        fac_val = sp.simplify(fac.subs(subs_dict))
+                        if fac_val == sp.S.Zero:
+                            if verbose:
+                                print(f"    czynnik log {fac} → 0 → BIEGUN LOG (Landau)")
+                            return "logarithmic_pole"
+                        # Przypadek B: czynnik log dywerguje → brak rzędu alg.
+                        # Test: lim (var-point)^1 * expr = 0 (nie skończone niezerowe)
+                        if len(subs_dict) == 1:
+                            v, pt = list(subs_dict.items())[0]
+                            try:
+                                test_lim = sp.limit((v - pt) * expr, v, pt)
+                                if test_lim == sp.S.Zero:
+                                    if verbose:
+                                        print(f"    lim (x-x0)·f=0 przy log w denom → BIEGUN LOG (IR)")
+                                    return "logarithmic_pole"
+                            except Exception:
+                                pass
+            except Exception:
+                pass
             return "pole"
 
         # Sprawdź czy to osobliwość istotna (exp(1/x) itp.)
@@ -585,7 +744,159 @@ def _compute_pole(
     return W(BOTTOM)
 
 
+def _compute_logarithmic_pole(
+    expr:      sp.Basic,
+    variables: list[tuple[sp.Symbol, sp.Basic]],
+    verbose:   bool = False,
+) -> WheelCalcResult:
+    """
+    Analiza bieguna logarytmicznego — czynnik log(var/μ²) zeruje się w mianowniku.
 
+    Strategia:
+      1. Zidentyfikuj zmienną i punkt osobliwy (mianownik → 0).
+      2. Wyodrębnij czynnik logarytmiczny z mianownika.
+      3. Oblicz residuum przez sp.residue (działa dla biegunów prostych log).
+      4. Sprawdź rząd przez lim (x-x0)^n · f(x).
+      5. Zbuduj hint rozwinięcia Laurenta.
+
+    Dlaczego sp.residue zamiast sp.limit * (x-x0)?
+      sp.residue używa wewnętrznego rozwinięcia Laurenta SymPy,
+      które poprawnie obsługuje czynniki log w mianowniku.
+
+    Returns:
+        LogarithmicSingularity  — gdy udało się obliczyć rząd i residuum
+        PoleSingularity         — fallback gdy czynnik log nie wpływa na rząd
+        WheelNumber(⊥)          — fallback gdy obliczenie niemożliwe
+    """
+    if len(variables) == 1:
+        var, point = variables[0]
+    else:
+        var, point = variables[0]
+        for v, p in variables:
+            try:
+                _, denom = sp.fraction(sp.cancel(expr))
+                if sp.simplify(denom.subs(v, p)) == sp.S.Zero:
+                    var, point = v, p
+                    break
+            except Exception:
+                pass
+
+    try:
+        # Wyodrębnij czynnik logarytmiczny i ustal typ bieguna.
+        raw_denom = sp.denom(expr)
+        denom_factors = sp.Mul.make_args(raw_denom)
+        log_factor = None
+        log_type = "landau"   # "landau" = log zeruje się | "ir" = log dywerguje
+
+        for fac in denom_factors:
+            if fac.has(sp.log):
+                fac_val = sp.simplify(fac.subs({var: point}))
+                if fac_val == sp.S.Zero:
+                    log_factor = fac
+                    log_type = "landau"
+                    break
+                else:
+                    # Przypadek IR: log dywerguje, ale czynnik algebraiczny też → 0
+                    log_factor = fac
+                    log_type = "ir"
+
+        # Fallback dla log_factor
+        if log_factor is None:
+            _, denom_fb = sp.fraction(sp.cancel(expr))
+            log_atoms = [a for a in denom_fb.atoms(sp.log) if a.has(var)]
+            log_factor = log_atoms[0] if log_atoms else sp.log(var)
+            log_type = "ir"
+
+        if verbose:
+            print(f"  Czynnik log  : {log_factor}  [{log_type}]")
+
+        # Przypadek IR: lim (x-x0)^n * f = 0 dla każdego n
+        # Brak rzędu algebraicznego — biegun logarytmicznie wzmocniony
+        if log_type == "ir":
+            try:
+                # Oblicz residuum przez sp.residue (może zadziałać)
+                try:
+                    residue = sp.residue(expr, var, point)
+                    residue = sp.simplify(residue)
+                except Exception:
+                    residue = None
+
+                hint = f"biegun IR log: 1/({var}·log({var}/μ²)) — brak rzędu alg."
+                if verbose:
+                    print(f"  Typ IR       : logarytmicznie wzmocniony (lim x^n·f=0 ∀n)")
+                    print(f"  Residuum     : {residue}")
+                    print(f"  Laurent      : {hint}")
+
+                return LogarithmicSingularity(
+                    expression=expr,
+                    variables=variables,
+                    singular_point=point,
+                    pole_order=1,    # konwencja: raportujemy rząd "efektywny"
+                    residue=residue,
+                    log_factor=log_factor,
+                    laurent_hint=hint,
+                )
+            except Exception as e:
+                if verbose:
+                    print(f"  IR fallback błąd: {e}")
+                return W(BOTTOM)
+
+        # Oblicz residuum przez SymPy (obsługuje log w mianowniku)
+        try:
+            residue = sp.residue(expr, var, point)
+            residue = sp.simplify(residue)
+            if verbose:
+                print(f"  sp.residue   : {residue}")
+        except Exception as e:
+            if verbose:
+                print(f"  sp.residue błąd: {e}")
+            residue = None
+
+        # Sprawdź rząd bieguna przez lim (x-x0)^n · f(x)
+        pole_order = 1  # domyślnie — bieguny log są zazwyczaj rzędu 1
+        for n in range(1, 6):
+            try:
+                factor = (var - point) ** n
+                cand = sp.limit(factor * expr, var, point)
+                if cand in (sp.oo, -sp.oo, sp.zoo, sp.nan):
+                    continue
+                if cand == sp.S.Zero:
+                    continue
+                pole_order = n
+                if verbose:
+                    print(f"  Rząd bieguna : {n} (lim (x-x0)^{n}·f = {sp.simplify(cand)})")
+                break
+            except Exception:
+                continue
+
+        # Zbuduj hint Laurenta
+        if residue is not None and pole_order == 1:
+            hint = f"({residue}) · 1/({var}-{point}) + O(1)"
+        elif residue is not None:
+            hint = f"({residue}) · 1/({var}-{point})^{pole_order} + O(1/({var}-{point})^{pole_order-1})"
+        else:
+            hint = f"biegun log rzędu {pole_order} przy {var}={point}"
+
+        if verbose:
+            print(f"  Laurent      : {hint}")
+
+        return LogarithmicSingularity(
+            expression=expr,
+            variables=variables,
+            singular_point=point,
+            pole_order=pole_order,
+            residue=residue,
+            log_factor=log_factor,
+            laurent_hint=hint,
+        )
+
+    except Exception as e:
+        if verbose:
+            print(f"  _compute_logarithmic_pole błąd: {e} → fallback ⊥")
+        return W(BOTTOM)
+
+
+def _has_essential_singularity(expr: sp.Basic, subs_dict: dict) -> bool:
     """Heurystyczna detekcja osobliwości istotnych (exp(1/x), sin(1/x))."""
     try:
         expr_str = str(expr)
@@ -828,6 +1139,10 @@ def analyse_singularity(
         if isinstance(result, RemovableSingularity):
             print(result.report())
             print(f"\n  ✓ WYNIK: osobliwość USUWALNA → lim = {result.limit_value}")
+        elif isinstance(result, LogarithmicSingularity):
+            print(result.report())
+            res_str = f", res={result.residue}" if result.residue is not None else ""
+            print(f"\n  ✗ WYNIK: BIEGUN LOGARYTMICZNY rzędu {result.pole_order}{res_str} → ⊥")
         elif isinstance(result, PoleSingularity):
             print(result.report())
             res_str = f", res={result.residue}" if result.residue is not None else ""
@@ -874,6 +1189,12 @@ def classify_batch(
             lim = result.limit_value
             order = result.taylor_order
             correct = (expected is None) or _values_match(lim, expected)
+        elif isinstance(result, LogarithmicSingularity):
+            r_type = "LOG_POLE"
+            w_val = "⊥"
+            lim = sp.zoo
+            order = result.pole_order
+            correct = (expected is None) or (expected in (sp.oo, sp.zoo, -sp.oo))
         elif isinstance(result, PoleSingularity):
             r_type = "POLE"
             w_val = "⊥"
@@ -904,6 +1225,9 @@ def classify_batch(
             mark = "✓" if correct else "✗"
             if r_type == "REMOVABLE":
                 type_str = f"{'USUWALNA':12}"
+            elif r_type == "LOG_POLE":
+                res_str = f" res={result.residue}" if result.residue is not None else ""
+                type_str = f"{'BIEGUN_LOG['+str(order)+']':14}"
             elif r_type == "POLE":
                 res_str = f" res={result.residue}" if result.residue is not None else ""
                 type_str = f"{'BIEGUN['+str(order)+']':12}"
@@ -1115,25 +1439,70 @@ if __name__ == "__main__":
     )
 
     # ════════════════════════════════════════════════════════════
+    # SEKCJA 6: Bieguny logarytmiczne QCD — Kierunek 4
+    # ════════════════════════════════════════════════════════════
+    print("\n▶  BIEGUNY LOGARYTMICZNE QCD — propagator gluonu\n")
+    print("   (czynnik log zeruje mianownik — nowy typ w wheel_calculus)\n")
+
+    k2      = sp.Symbol("k2",      positive=True)
+    alpha_s = sp.Symbol("alpha_s", positive=True)
+    mu_r    = sp.Symbol("mu_r",    positive=True)
+
+    gluon_prop = sp.Integer(1) / (k2 * (1 + alpha_s * sp.log(k2 / mu_r**2)))
+    k2_ir      = sp.S.Zero
+    k2_landau  = mu_r**2 * sp.exp(-sp.Integer(1) / alpha_s)
+
+    cases_qcd = [
+        {
+            "name": "Gluon prop. — biegun IR (k²=0)",
+            "expr": gluon_prop,
+            "variables": [(k2, k2_ir)],
+            "expected_limit": sp.zoo,
+        },
+        {
+            "name": "Gluon prop. — biegun Landaua",
+            "expr": gluon_prop,
+            "variables": [(k2, k2_landau)],
+            "expected_limit": sp.zoo,
+        },
+    ]
+
+    print(f"  {'Równanie':<42} {'Typ':<16} {'res':<20} {'OK?'}")
+    print(f"  {'─'*42} {'─'*16} {'─'*20} {'─'*4}")
+    classify_batch(cases_qcd, max_order=8, verbose=True)
+
+    print()
+    analyse_singularity(
+        gluon_prop,
+        [(k2, k2_landau)],
+        name="Propagator gluonu QCD — biegun Landaua (pełna analiza)",
+        max_order=6,
+        verbose=True,
+    )
+
+    # ════════════════════════════════════════════════════════════
     # PODSUMOWANIE
     # ════════════════════════════════════════════════════════════
     print("\n" + "═"*62)
     print("  PODSUMOWANIE — wheel_calculus.py")
     print("═"*62)
     print("""
-  Czwórpodział:
-    WheelFinite(v)         → regularny punkt (Wheel OK)
-    WheelNumber(⊥)         → ⊥ bez struktury (fallback)
-    RemovableSingularity   → Wheel=⊥ ale lim=v (osobliwość usuwalna)
-    PoleSingularity        → biegun: rząd + residuum + Laurent
+  Pięciopodział:
+    WheelFinite(v)            → regularny punkt (Wheel OK)
+    WheelNumber(⊥)            → ⊥ bez struktury (fallback)
+    RemovableSingularity      → Wheel=⊥ ale lim=v (osobliwość usuwalna)
+    PoleSingularity           → biegun algebraiczny: rząd + residuum + Laurent
+    LogarithmicSingularity    → biegun log: czynnik log zeruje mianownik
 
-  Residue analysis (nowe):
-    1/(p²-m²) przy p=m  → rząd=1, res=1/(2m)
-    1/x² przy x=0       → rząd=2, res=N/A (Cauchy tylko dla rzędu 1)
-    g_rr przy r=r_s     → rząd=1, res=r_s
+  Residue analysis:
+    1/(p²-m²) przy p=m  → POLE[1], res=1/(2m)
+    1/x² przy x=0       → POLE[2], res=N/A (Cauchy tylko dla rzędu 1)
+    g_rr przy r=r_s     → POLE[1], res=r_s
+    Gluon @ Landau      → LOG_POLE[1], res=1/αs  ← NOWE
 
   Związek z QFT:
     residuum propagatora = amplituda przejścia on-shell
+    residuum bieguna Landaua = 1/αs (siła sprzężenia QCD)
     twierdzenie Cauchy'ego: ∮ f(z) dz = 2πi · Σ res(f, zₖ)
 
   Architektura:
