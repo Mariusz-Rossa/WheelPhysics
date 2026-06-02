@@ -124,7 +124,7 @@ deliberately separate modules. Wheel Algebra ≠ limit theory.
 
 ```
 main.py                    Main script
-dashboard_en.html          Interactive, browser-based viewer for JSON logs
+dashboard.html             Interactive, browser-based viewer for JSON logs
 
 core/
   wheel_number.py         WheelNumber type: values, ⊥, arithmetic (11/11 axioms)
@@ -167,14 +167,15 @@ python main.py --db               # equation catalogue
 ---
 
 ## Visual Dashboard
-The framework includes a standalone, browser-based dashboard ('dashboard.html') that allows you to interactively explore the generated JSON logs.
+
+The framework includes a standalone, browser-based dashboard (`dashboard.html`) that allows you to interactively explore the generated JSON logs.
 
 - generate the logs (if you haven't already) by running the full analysis or the specific log modules:
 ```bash
 python main.py
 ```
-- open the Dashboard: Double-click 'dashboard.html' to open it in any modern web browser. No local server is required.
-- load the Data: Use the upload buttons at the top of the page to load 'wheel_results.json' and 'calculus_results.json' from the 'results/'' directory.
+- open the Dashboard: Double-click `dashboard.html` to open it in any modern web browser. No local server is required.
+- load the Data: Use the upload buttons at the top of the page to load `wheel_results.json` and `calculus_results.json` from the `results/` directory.
 - explore: Visually browse the classical limits vs. Wheel Algebra results, review the four-fold classification of singularities, and read the physical hypotheses derived for each equation.
 
 ---
