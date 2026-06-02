@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WheelPhysics Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #3b82f6;
+            --bottom-color: #ef4444;
+            --finite-color: #10b981;
+            --mixed-color: #f59e0b;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3 { color: #fff; }
+
+        header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .upload-section {
+            display: flex;
+            gap: 15px;
+        }
+
+        .file-upload {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .results-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #fff;
+            margin: 0;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge.bottom, .badge.pole { background-color: rgba(239, 68, 68, 0.2); color: var(--bottom-color); border: 1px solid var(--bottom-color); }
+        .badge.finite, .badge.removable { background-color: rgba(16, 185, 129, 0.2); color: var(--finite-color); border: 1px solid var(--finite-color); }
+        .badge.mixed { background-color: rgba(245, 158, 11, 0.2); color: var(--mixed-color); border: 1px solid var(--mixed-color); }
+        .badge.domain { background-color: #374151; color: #d1d5db; }
+
+        .expr {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000;
+            padding: 10px;
+            border-radius: 4px;
+            color: #a78bfa;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: #9ca3af;
+            font-weight: normal;
+        }
+
+        .hypothesis {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid var(--accent-color);
+            padding: 10px 15px;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            color: #9ca3af;
+        }
+
+        .tab.active {
+            background-color: var(--accent-color);
+            color: #fff;
+            border-color: var(--accent-color);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>WheelPhysics Dashboard</h1>
+            <p>Visualization of Wheel Algebra analysis on physical equations</p>
+        </div>
+        <div class="upload-section">
+            <label class="file-upload">
+                <span class="btn">Load wheel_results.json</span>
+                <input type="file" id="upload-wheel" accept=".json">
+            </label>
+            <label class="file-upload">
+                <span class="btn">Load calculus_results.json</span>
+                <input type="file" id="upload-calculus" accept=".json">
+            </label>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <div class="tab active" id="tab-wheel" onclick="switchTab('wheel')">Singularity Analysis (Wheel)</div>
+        <div class="tab" id="tab-calculus" onclick="switchTab('calculus')">Analytical Extension (Calculus)</div>
+    </div>
+
+    <div class="stats-container" id="stats">
+        <div class="stat-card">Load JSON files to view statistics.</div>
+    </div>
+
+    <div id="section-wheel" class="section active">
+        <div class="results-container" id="wheel-container"></div>
+    </div>
+
+    <div id="section-calculus" class="section">
+        <div class="results-container" id="calculus-container"></div>
+    </div>
+
+    <script>
+        let wheelData = [];
+        let calculusData = [];
+
+        // Tab Switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`section-${tabName}`).classList.add('active');
+            updateStats();
+        }
+
+        // File Upload Handlers
+        document.getElementById('upload-wheel').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    wheelData = JSON.parse(e.target.result);
+                    renderWheelData();
+                    updateStats();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        document.getElementById('upload-calculus').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    calculusData = JSON.parse(e.target.result);
+                    renderCalculusData();
+                    updateStats();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function updateStats() {
+            const statsDiv = document.getElementById('stats');
+            let html = '';
+            
+            const activeTab = document.querySelector('.tab.active').id;
+
+            if (activeTab === 'tab-wheel' && wheelData.length > 0) {
+                const total = wheelData.length;
+                const bottom = wheelData.filter(d => d.wheel_verdict === 'BOTTOM').length;
+                const finite = wheelData.filter(d => d.wheel_verdict === 'FINITE').length;
+                const mixed = wheelData.filter(d => d.wheel_verdict === 'MIXED').length;
+
+                html += `
+                    <div class="stat-card"><div>Analyzed Equations</div><div class="stat-value">${total}</div></div>
+                    <div class="stat-card"><div>Singularities (⊥)</div><div class="stat-value" style="color:var(--bottom-color)">${bottom}</div></div>
+                    <div class="stat-card"><div>Finite Results</div><div class="stat-value" style="color:var(--finite-color)">${finite}</div></div>
+                    <div class="stat-card"><div>Mixed Results</div><div class="stat-value" style="color:var(--mixed-color)">${mixed}</div></div>
+                `;
+            } else if (activeTab === 'tab-calculus' && calculusData.length > 0) {
+                const total = calculusData.length;
+                const removable = calculusData.filter(d => d.calculus_type === 'REMOVABLE').length;
+                const poles = calculusData.filter(d => d.calculus_type === 'POLE').length;
+                const bottom = calculusData.filter(d => d.calculus_type === 'BOTTOM').length;
+                const finite = calculusData.filter(d => d.calculus_type === 'FINITE').length;
+
+                html += `
+                    <div class="stat-card"><div>Analyzed Cases</div><div class="stat-value">${total}</div></div>
+                    <div class="stat-card"><div>Removable Sing.</div><div class="stat-value" style="color:var(--finite-color)">${removable}</div></div>
+                    <div class="stat-card"><div>Poles w/ Residue</div><div class="stat-value" style="color:var(--bottom-color)">${poles}</div></div>
+                    <div class="stat-card"><div>Unrecognized (BOTTOM)</div><div class="stat-value" style="color:gray">${bottom}</div></div>
+                `;
+            } else {
+                html = '<div class="stat-card">Waiting for JSON data...</div>';
+            }
+
+            statsDiv.innerHTML = html;
+        }
+
+        function renderWheelData() {
+            const container = document.getElementById('wheel-container');
+            container.innerHTML = '';
+
+            wheelData.forEach(item => {
+                const badgeClass = item.wheel_verdict.toLowerCase();
+                
+                let pointsTable = '';
+                if (item.singular_points && item.singular_points.length > 0) {
+                    pointsTable = `
+                        <table>
+                            <tr><th>Variable</th><th>Value</th><th>Classical Result</th><th>Wheel</th><th>Description</th></tr>
+                            ${item.singular_points.map(p => `
+                                <tr>
+                                    <td><strong>${p.var}</strong></td>
+                                    <td>${p.value}</td>
+                                    <td>${p.classical}</td>
+                                    <td><strong style="color:${p.wheel_result === '⊥' ? 'var(--bottom-color)' : 'var(--text-color)'}">${p.wheel_result}</strong></td>
+                                    <td><small>${p.note}</small></td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    `;
+                }
+
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <span class="badge domain">${item.domain}</span>
+                                <h3 class="card-title" style="display:inline-block; margin-left:10px;">${item.equation_name}</h3>
+                            </div>
+                            <span class="badge ${badgeClass}">${item.wheel_verdict}</span>
+                        </div>
+                        <div class="expr">${item.expression_str}</div>
+                        ${pointsTable}
+                        <div class="hypothesis"><strong>Conclusion/Hypothesis:</strong> ${item.hypothesis}</div>
+                        ${item.notes ? `<p style="font-size:0.85rem; color:#9ca3af;"><em>Notes: ${item.notes}</em></p>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        function renderCalculusData() {
+            const container = document.getElementById('calculus-container');
+            container.innerHTML = '';
+
+            calculusData.forEach(item => {
+                const badgeClass = item.calculus_type.toLowerCase();
+                
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">${item.name}</h3>
+                            <span class="badge ${badgeClass}">${item.calculus_type}</span>
+                        </div>
+                        <div class="expr">${item.expression_str}</div>
+                        <table>
+                            <tr>
+                                <th>Tested Point</th>
+                                <th>Wheel Result</th>
+                                <th>Limit / Result</th>
+                                <th>Taylor/Pole Order</th>
+                                ${item.residue ? '<th>Cauchy Residue</th>' : ''}
+                            </tr>
+                            <tr>
+                                <td>${item.variables}</td>
+                                <td style="color:var(--bottom-color)"><strong>${item.wheel_result}</strong></td>
+                                <td><strong>${item.limit_value}</strong></td>
+                                <td>${item.taylor_order || item.pole_order || 'N/A'}</td>
+                                ${item.residue ? `<td><strong>${item.residue}</strong></td>` : ''}
+                            </tr>
+                        </table>
+                        ${item.series_hint ? `<div style="background:#111; padding:8px; border-radius:4px; font-family:monospace; font-size:0.85rem; color:#a78bfa; margin-bottom:10px;">Expansion: ${item.series_hint}</div>` : ''}
+                        ${item.note ? `<p style="font-size:0.85rem; color:#9ca3af;"><em>${item.note}</em></p>` : ''}
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
