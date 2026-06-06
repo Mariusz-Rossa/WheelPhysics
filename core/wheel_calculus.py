@@ -2,62 +2,62 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-wheel_calculus.py — Wheel Algebra z rozszerzeniem analitycznym
+wheel_calculus.py — Wheel Algebra with analytical extension
 
-Wheel Algebra (wheel_algebra.py) jest algebrą punktową:
-  każda forma 0/0 → ⊥, bez wyjątku.
+Wheel Algebra (wheel_algebra.py) is a point algebra:
+  every 0/0 form → ⊥, without exception.
 
-Ten moduł dodaje warstwę analityczną: gdy Wheel zwróci ⊥, diagnozuje
-typ osobliwości i — dla biegunów — oblicza residuum i rząd bieguna.
+This module adds an analytical layer: when Wheel returns ⊥, it diagnoses
+the type of singularity and — for poles — calculates the residue and pole order.
 
-Pięciopodział wyników (wheel_limit):
+Five-fold division of results (wheel_limit):
   ┌──────────────────────────────────────────────────────────────┐
-  │ WheelFinite(value)        — regularny punkt (Wheel OK)       │
-  │ WheelBottom()             — nieusuwalna ⊥ (nieokreślony typ) │
-  │ RemovableSingularity      — usuwalna: Wheel=⊥, lim=val      │
-  │ PoleSingularity           — biegun alg.: rząd + res + Laurent│
-  │ LogarithmicSingularity    — biegun log.: log zeruje mianownik│
+  │ WheelFinite(value)        — regular point (Wheel OK)         │
+  │ WheelBottom()             — irremovable ⊥ (undefined type)   │
+  │ RemovableSingularity      — removable: Wheel=⊥, lim=val      │
+  │ PoleSingularity           — alg. pole: order + res + Laurent │
+  │ LogarithmicSingularity    — log. pole: log zeroes denominator│
   └──────────────────────────────────────────────────────────────┘
 
-Formalny system typów — SingularityType (enum):
-  REGULAR      → punkt regularny (Wheel skończony)
-  REMOVABLE    → osobliwość usuwalna (Taylor)
-  POLE_SIMPLE  → biegun prosty rząd=1 (res Cauchy zdefiniowane)
-  POLE_HIGHER  → biegun wyższego rzędu (res N/A)
-  ESSENTIAL    → osobliwość istotna (Picard) — wymaga zewnętrznej analizy
-  LOGARITHMIC  → ⊥  biegun logarytmiczny: czynnik log zeruje mianownik (QCD)
-  BRANCH_POINT → punkt rozgałęzienia — wymaga zewnętrznej analizy
-  COORDINATE   → artefakt układu współrzędnych — wymaga niezmienników
-  PHYSICAL     → potwierdzona osobliwość fizyczna — wymaga niezmienników
-  COMPLEX_POLE → biegun zespolony (poza R) — otwarte pytanie badawcze
-  UNKNOWN      → fallback gdy klasyfikacja nie powiodła się
+Formal type system — SingularityType (enum):
+  REGULAR      → regular point (Wheel is finite)
+  REMOVABLE    → removable singularity (Taylor)
+  POLE_SIMPLE  → simple pole order=1 (Cauchy res defined)
+  POLE_HIGHER  → higher-order pole (res N/A)
+  ESSENTIAL    → essential singularity (Picard) — requires external analysis
+  LOGARITHMIC  → ⊥ logarithmic pole: log factor zeroes the denominator (QCD)
+  BRANCH_POINT → branch point — requires external analysis
+  COORDINATE   → coordinate system artifact — requires invariants
+  PHYSICAL     → confirmed physical singularity — requires invariants
+  COMPLEX_POLE → complex pole (outside R) — open research question
+  UNKNOWN      → fallback when classification fails
 
-Architektura (celowa):
-  wheel_algebra.py    — aksjomatyczna, czysta, bez zmian
-  wheel_calculus.py   — osobny moduł, rozszerzenie analityczne
-  consistency_checker — testuje oba, porównuje wyniki
+Architecture (intentional):
+  wheel_algebra.py    — axiomatic, pure, unchanged
+  wheel_calculus.py   — separate module, analytical extension
+  consistency_checker — tests both, compares results
 
-To rozróżnienie jest ważne dla preprintu:
-  Wheel Algebra ≠ teoria granic
-  Wheel + Calculus = pełny aparat do analizy osobliwości
+This distinction is important for the preprint:
+  Wheel Algebra ≠ limit theory
+  Wheel + Calculus = full apparatus for singularity analysis
 
-Referencja: Carlström (2004) "Wheels — On Division by Zero"
+Reference: Carlström (2004) "Wheels — On Division by Zero"
 """
 
 from __future__ import annotations
 
 import sys, os
-# Obsługa obu wariantów struktury (flat repo i core/ subpackage)
+# Support for both structure variants (flat repo and core/ subpackage)
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
-# Jeśli repo używa struktury core/, stwórz symlink-like namespace
+# If repo uses core/ structure, create symlink-like namespace
 try:
     from wheel_number import WheelNumber, BOTTOM, W, _coerce
 except ImportError:
     from core.wheel_number import WheelNumber, BOTTOM, W, _coerce  # type: ignore
 
-# Tworzymy tymczasowy moduł 'core' wskazujący na bieżący katalog
-# żeby wheel_algebra.py i sympy_extension.py mogły robić 'from core.xxx'
+# We create a temporary 'core' module pointing to the current directory
+# so that wheel_algebra.py and sympy_extension.py can do 'from core.xxx'
 import types as _types
 if 'core' not in sys.modules:
     _core_mod = _types.ModuleType('core')
@@ -82,82 +82,82 @@ except ImportError:
 _wa = WheelAlgebra()
 
 
-# ─── SingularityType — formalny typ osobliwości ────────────────────────────────
+# ─── SingularityType — formal singularity type ───────────────────────────────
 
 from enum import Enum, auto
 
 class SingularityType(Enum):
     """
-    Formalny typ osobliwości — wynik klasyfikacji wheel_calculus.
+    Formal singularity type — classification result of wheel_calculus.
 
-    Hierarchia (od "najbardziej regularna" do "najbardziej osobliwa"):
+    Hierarchy (from "most regular" to "most singular"):
 
-      REGULAR          — punkt regularny: Wheel daje skończoną wartość,
-                         brak osobliwości. Calculus nie ingeruje.
+      REGULAR          — regular point: Wheel yields a finite value,
+                         no singularity. Calculus does not interfere.
 
-      REMOVABLE        — osobliwość usuwalna: Wheel daje ⊥ (forma 0/0),
-                         ale granica analityczna istnieje i jest skończona.
-                         Rozwinięcie Taylora usuwa osobliwość.
-                         Przykład: sin(x)/x przy x=0, lim=1
+      REMOVABLE        — removable singularity: Wheel yields ⊥ (0/0 form),
+                         but an analytical limit exists and is finite.
+                         Taylor expansion removes the singularity.
+                         Example: sin(x)/x at x=0, lim=1
 
-      POLE             — biegun algebraiczny: Wheel daje ⊥, mianownik → 0,
-                         licznik ≠ 0. Granica = ±∞. Posiada rząd i residuum.
-                         Przykład: 1/(p²-m²) przy p=m, res=1/(2m)
+      POLE             — algebraic pole: Wheel yields ⊥, denominator → 0,
+                         numerator ≠ 0. Limit = ±∞. Possesses order and residue.
+                         Example: 1/(p²-m²) at p=m, res=1/(2m)
 
-      POLE_SIMPLE      — biegun prosty (rząd=1): szczególny przypadek POLE.
-                         Residuum zdefiniowane w sensie Cauchy'ego.
-                         Najważniejszy fizycznie — propagatory QFT.
+      POLE_SIMPLE      — simple pole (order=1): special case of POLE.
+                         Residue is defined in Cauchy's sense.
+                         Most important physically — QFT propagators.
 
-      POLE_HIGHER      — biegun wyższego rzędu (rząd≥2): residuum N/A.
-                         Przykład: 1/r² przy r=0 (rząd=2).
+      POLE_HIGHER      — higher-order pole (order≥2): residue N/A.
+                         Example: 1/r² at r=0 (order=2).
 
-      ESSENTIAL        — osobliwość istotna (essential singularity):
-                         nie biegun, nie usuwalna — zachowanie chaotyczne
-                         w otoczeniu punktu (twierdzenie Picarda-Weierstrassa).
-                         Przykład: exp(1/z) przy z=0.
-                         Wheel daje ⊥; Taylor i Laurent nie pomagają.
+      ESSENTIAL        — essential singularity:
+                         not a pole, not removable — chaotic behavior
+                         in the vicinity of the point (Picard-Weierstrass theorem).
+                         Example: exp(1/z) at z=0.
+                         Wheel yields ⊥; Taylor and Laurent do not help.
 
-      LOGARITHMIC      — osobliwość logarytmiczna: dywergencja log-typu.
-                         Przykład: propagator gluonu QCD z poprawką pętlową.
-                         Taylor nie działa; wymaga szeregu asymptotycznego.
+      LOGARITHMIC      — logarithmic singularity: log-type divergence.
+                         Example: QCD gluon propagator with a loop correction.
+                         Taylor does not work; requires asymptotic series.
 
-      BRANCH_POINT     — punkt rozgałęzienia: funkcja wielowartościowa
-                         (np. √z, log z przy z=0). Nie jest biegunem.
+      BRANCH_POINT     — branch point: multi-valued function
+                         (e.g., √z, log z at z=0). Not a pole.
 
-      COORDINATE       — artefakt układu współrzędnych, nie fizyczna osobliwość.
-                         Wykrywana przez niezmienniki (np. K Kretschmanna).
-                         Przykład: g_rr przy r=r_s — biegun w Schwarzschildzie,
-                         ale K(r_s) skończone.
+      COORDINATE       — coordinate system artifact, not a physical singularity.
+                         Detected via invariants (e.g., Kretschmann K).
+                         Example: g_rr at r=r_s — a pole in Schwarzschild,
+                         but K(r_s) is finite.
 
-      PHYSICAL         — potwierdzona fizyczna osobliwość (nie artefakt).
-                         Wheel=⊥ I niezmiennik skalarny też ⊥.
-                         Przykład: K przy r=0 (osobliwość krzywizny).
+      PHYSICAL         — confirmed physical singularity (not an artifact).
+                         Wheel=⊥ AND scalar invariant is also ⊥.
+                         Example: K at r=0 (curvature singularity).
 
-      COMPLEX_POLE     — biegun leżący poza osią rzeczywistą (Im(z₀) ≠ 0).
-                         Wheel (operując na R) nie trafia w niego przez
-                         podstawienie rzeczywiste. Otwarte pytanie badawcze.
-                         Przykład: Green oscylatora z tłumieniem γ>0.
+      COMPLEX_POLE     — complex pole (lying outside the real axis, Im(z₀) ≠ 0).
+                         Wheel (operating on R) misses it through
+                         real substitution. Open research question.
+                         Example: Green function of a damped oscillator γ>0.
 
-      UNKNOWN          — typ nierozpoznany — fallback gdy klasyfikacja
-                         nie powiodła się lub wyrażenie zbyt złożone.
+      UNKNOWN          — unrecognized type — fallback when classification
+                         fails or expression is too complex.
     """
 
-    REGULAR       = auto()   # ✓  punkt regularny
-    REMOVABLE     = auto()   # ⊥→v  osobliwość usuwalna
-    POLE          = auto()   # ⊥  biegun (ogólny)
-    POLE_SIMPLE   = auto()   # ⊥  biegun prosty (rząd=1, res zdefiniowane)
-    POLE_HIGHER   = auto()   # ⊥  biegun wyższego rzędu (rząd≥2)
-    ESSENTIAL     = auto()   # ⊥  osobliwość istotna (Picard)
-    LOGARITHMIC   = auto()   # ⊥  dywergencja logarytmiczna
-    BRANCH_POINT  = auto()   # ⊥  punkt rozgałęzienia
-    COORDINATE    = auto()   # ⊥* artefakt układu współrzędnych
-    PHYSICAL      = auto()   # ⊥  potwierdzona osobliwość fizyczna
-    COMPLEX_POLE  = auto()   # ⊥? biegun zespolony (poza R)
-    UNKNOWN       = auto()   # ?  nierozpoznany
+    REGULAR       = auto()   # ✓  regular point
+    REMOVABLE     = auto()   # ⊥→v  removable singularity
+    POLE          = auto()   # ⊥  pole (general)
+    POLE_SIMPLE   = auto()   # ⊥  simple pole (order=1, res defined)
+    POLE_HIGHER   = auto()   # ⊥  higher-order pole (order≥2)
+    ESSENTIAL     = auto()   # ⊥  essential singularity (Picard)
+    LOGARITHMIC   = auto()   # ⊥  logarithmic divergence
+    BRANCH_POINT  = auto()   # ⊥  branch point
+    COORDINATE    = auto()   # ⊥* coordinate system artifact
+    PHYSICAL      = auto()   # ⊥  confirmed physical singularity
+    COMPLEX_POLE  = auto()   # ⊥? complex pole (outside R)
+    UNKNOWN       = auto()   # ?  unrecognized
 
     @property
     def is_genuine_singularity(self) -> bool:
-        """Czy to prawdziwa (nieusuwalna) osobliwość?"""
+        """Is this a genuine (irremovable) singularity?"""
         return self not in (
             SingularityType.REGULAR,
             SingularityType.REMOVABLE,
@@ -166,12 +166,12 @@ class SingularityType(Enum):
 
     @property
     def has_residue(self) -> bool:
-        """Czy residuum Cauchy'ego jest zdefiniowane?"""
+        """Is the Cauchy residue defined?"""
         return self == SingularityType.POLE_SIMPLE
 
     @property
     def short(self) -> str:
-        """Krótki label do tabel i logów."""
+        """Short label for tables and logs."""
         _labels = {
             SingularityType.REGULAR:      "REGULAR",
             SingularityType.REMOVABLE:    "REMOVABLE",
@@ -194,19 +194,19 @@ class SingularityType(Enum):
 
 def singularity_type_of(result: "WheelCalcResult") -> SingularityType:
     """
-    Zwraca SingularityType dla dowolnego wyniku wheel_calculus.
+    Returns the SingularityType for any wheel_calculus result.
 
-    Mapowanie:
-      WheelNumber (skończony)    → REGULAR
-      WheelNumber (⊥, BOTTOM)   → UNKNOWN  (brak dalszej informacji)
+    Mapping:
+      WheelNumber (finite)       → REGULAR
+      WheelNumber (⊥, BOTTOM)    → UNKNOWN  (no further information)
       RemovableSingularity       → REMOVABLE
-      PoleSingularity rząd=1     → POLE_SIMPLE
-      PoleSingularity rząd≥2     → POLE_HIGHER
+      PoleSingularity order=1    → POLE_SIMPLE
+      PoleSingularity order≥2    → POLE_HIGHER
 
-    Uwaga: COORDINATE, PHYSICAL, ESSENTIAL, LOGARITHMIC, COMPLEX_POLE
-    wymagają dodatkowego kontekstu (np. niezmienniki skalarne, analiza
-    asymptotyczna) i nie mogą być wyprowadzone automatycznie z samego
-    wyniku wheel_limit. Przypisywane ręcznie lub przez dedykowane moduły.
+    Note: COORDINATE, PHYSICAL, ESSENTIAL, LOGARITHMIC, COMPLEX_POLE
+    require additional context (e.g., scalar invariants, asymptotic
+    analysis) and cannot be deduced automatically from the wheel_limit
+    result alone. They are assigned manually or by dedicated modules.
     """
     if isinstance(result, RemovableSingularity):
         return SingularityType.REMOVABLE
@@ -222,25 +222,25 @@ def singularity_type_of(result: "WheelCalcResult") -> SingularityType:
     return SingularityType.REGULAR
 
 
-# ─── Typy wyników ─────────────────────────────────────────────────────────────
+# ─── Result types ─────────────────────────────────────────────────────────────
 
 @dataclass
 class RemovableSingularity:
     """
-    Osobliwość usuwalna — Wheel daje ⊥, ale granica analityczna istnieje.
+    Removable singularity — Wheel yields ⊥, but an analytical limit exists.
 
-    Przykład:  sin(x)/x przy x=0
+    Example:  sin(x)/x at x=0
       wheel_result  = ⊥
       limit_value   = 1
-      taylor_order  = 1   (sin(x) ≈ x — x³/6, więc sin(x)/x ≈ 1 - x²/6 → 1)
+      taylor_order  = 1   (sin(x) ≈ x — x³/6, so sin(x)/x ≈ 1 - x²/6 → 1)
       variables     = [(x, 0)]
     """
-    wheel_result:  WheelNumber          # zawsze ⊥
-    limit_value:   sp.Basic             # wartość granicy
-    taylor_order:  int                  # rząd rozwinięcia który dał wynik
-    variables:     list[tuple]          # [(var, point), ...] — może być wiele
-    expression:    sp.Basic             # oryginalne wyrażenie
-    series_hint:   str = ""             # czytelne rozwinięcie Taylora
+    wheel_result:  WheelNumber          # always ⊥
+    limit_value:   sp.Basic             # limit value
+    taylor_order:  int                  # expansion order that gave the result
+    variables:     list[tuple]          # [(var, point), ...] — can be multiple
+    expression:    sp.Basic             # original expression
+    series_hint:   str = ""             # readable Taylor expansion
 
     @property
     def is_removable(self) -> bool:
@@ -259,62 +259,62 @@ class RemovableSingularity:
         return (
             f"RemovableSingularity("
             f"lim[{vars_str}] = {self.limit_value}, "
-            f"rząd Taylora = {self.taylor_order})"
+            f"Taylor order = {self.taylor_order})"
         )
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def report(self) -> str:
-        """Czytelny raport dla użytkownika / logu."""
+        """Readable report for the user / log."""
         vars_str = ", ".join(f"{v}→{p}" for v, p in self.variables)
         lines = [
-            f"  Wyrażenie : {self.expression}",
-            f"  Punkt     : {vars_str}",
-            f"  Wheel     : ⊥  (forma 0/0 — podstawienie punktowe)",
-            f"  Granica   : {self.limit_value}  ← wynik wheel_calculus",
-            f"  Typ       : OSOBLIWOŚĆ USUWALNA",
-            f"  Rząd      : Taylor do rzędu {self.taylor_order}",
+            f"  Expression  : {self.expression}",
+            f"  Point       : {vars_str}",
+            f"  Wheel       : ⊥  (0/0 form — point substitution)",
+            f"  Limit       : {self.limit_value}  ← wheel_calculus result",
+            f"  Type        : REMOVABLE SINGULARITY",
+            f"  Order       : Taylor to order {self.taylor_order}",
         ]
         if self.series_hint:
-            lines.append(f"  Taylor    : {self.series_hint}")
+            lines.append(f"  Taylor      : {self.series_hint}")
         return "\n".join(lines)
 
 
 @dataclass
 class PoleSingularity:
     """
-    Biegun algebraiczny — Wheel daje ⊥, mianownik zeruje się, licznik nie.
+    Algebraic pole — Wheel yields ⊥, denominator zeroes out, numerator does not.
 
-    Zawiera pełną lokalną strukturę bieguna:
-      - rząd bieguna (1=prosty, 2=podwójny, ...)
-      - residuum (dla rzędu 1: współczynnik przy 1/(x-x0))
-      - rozwinięcie Laurenta wokół bieguna
+    Contains the full local pole structure:
+      - pole order (1=simple, 2=double, ...)
+      - residue (for order 1: coefficient of 1/(x-x0))
+      - Laurent expansion around the pole
 
-    Przykład: 1/(p²-m²) przy p=m
+    Example: 1/(p²-m²) at p=m
       pole_order   = 1
       residue      = 1/(2m)
       laurent_hint = "1/(2m) · 1/(p-m) + O(1)"
 
-    Przykład: 1/r² przy r=0
+    Example: 1/r² at r=0
       pole_order   = 2
-      residue      = None  (residuum tylko dla rzędu 1)
+      residue      = None  (residue only for order 1)
       principal_part = "1/r²"
 
-    Związek z QFT:
-      Residuum przy bieguniepropagatu = amplituda przejścia na powłoce masowej.
-      Twierdzenie o residuach Cauchy'ego: ∮ f(z) dz = 2πi · Σ res(f, zₖ)
+    Connection with QFT:
+      Propagator residue at pole = transition amplitude on the mass shell.
+      Cauchy's residue theorem: ∮ f(z) dz = 2πi · Σ res(f, zₖ)
     """
-    expression:    sp.Basic          # oryginalne wyrażenie
+    expression:    sp.Basic          # original expression
     variables:     list[tuple]       # [(var, point), ...]
-    pole_order:    int               # rząd bieguna
-    residue:       Optional[sp.Basic]  # residuum (tylko rząd=1)
-    laurent_coeff: sp.Basic          # lim (x-x0)^n · f(x) — współczynnik główny
-    laurent_hint:  str = ""          # czytelny opis rozwinięcia Laurenta
+    pole_order:    int               # pole order
+    residue:       Optional[sp.Basic]  # residue (only order=1)
+    laurent_coeff: sp.Basic          # lim (x-x0)^n · f(x) — principal coefficient
+    laurent_hint:  str = ""          # readable description of the Laurent expansion
 
     @property
     def is_bottom(self) -> bool:
-        return True   # ⊥ w sensie Wheel — biegun to nieusuwalna osobliwość
+        return True   # ⊥ in the Wheel sense — a pole is an irremovable singularity
 
     @property
     def is_pole(self) -> bool:
@@ -335,34 +335,34 @@ class PoleSingularity:
         res_str = f", res={self.residue}" if self.residue is not None else ""
         return (
             f"PoleSingularity("
-            f"rząd={self.pole_order}{res_str}, "
-            f"przy [{vars_str}])"
+            f"order={self.pole_order}{res_str}, "
+            f"at [{vars_str}])"
         )
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def report(self) -> str:
-        """Czytelny raport dla użytkownika / logu."""
+        """Readable report for the user / log."""
         vars_str = ", ".join(f"{v}→{p}" for v, p in self.variables)
         lines = [
-            f"  Wyrażenie    : {self.expression}",
-            f"  Punkt        : {vars_str}",
-            f"  Wheel        : ⊥  (biegun — mianownik→0, licznik≠0)",
-            f"  Typ          : BIEGUN ALGEBRAICZNY (rząd {self.pole_order})",
-            f"  Rząd bieguna : {self.pole_order}",
+            f"  Expression   : {self.expression}",
+            f"  Point        : {vars_str}",
+            f"  Wheel        : ⊥  (pole — denominator→0, numerator≠0)",
+            f"  Type         : ALGEBRAIC POLE (order {self.pole_order})",
+            f"  Pole order   : {self.pole_order}",
         ]
         if self.residue is not None:
-            lines.append(f"  Residuum     : {self.residue}")
+            lines.append(f"  Residue      : {self.residue}")
         else:
-            lines.append(f"  Residuum     : N/A (tylko dla bieguna rzędu 1)")
-        lines.append(f"  Wsp. główny  : {self.laurent_coeff}  [= lim (x-x₀)ⁿ·f(x)]")
+            lines.append(f"  Residue      : N/A (only for order 1 pole)")
+        lines.append(f"  Prin. coeff. : {self.laurent_coeff}  [= lim (x-x₀)ⁿ·f(x)]")
         if self.laurent_hint:
             lines.append(f"  Laurent      : {self.laurent_hint}")
         lines.append(
-            f"  QFT          : res = amplituda on-shell (twierdzenie Cauchy'ego)"
+            f"  QFT          : res = on-shell amplitude (Cauchy's theorem)"
             if self.pole_order == 1 else
-            f"  QFT          : biegun wyższego rzędu — anomalna dywergencja"
+            f"  QFT          : higher-order pole — anomalous divergence"
         )
         return "\n".join(lines)
 
@@ -370,39 +370,39 @@ class PoleSingularity:
 @dataclass
 class LogarithmicSingularity:
     """
-    Biegun logarytmiczny — Wheel daje ⊥, mianownik zeruje się przez czynnik log.
+    Logarithmic pole — Wheel yields ⊥, denominator zeroes out through a log factor.
 
-    Różnica względem PoleSingularity:
-      PoleSingularity  — mianownik to wielomian: (x - x₀)ⁿ
-      LogarithmicSingularity — mianownik zawiera log(x/μ²) który zeruje się
+    Difference compared to PoleSingularity:
+      PoleSingularity  — denominator is a polynomial: (x - x₀)ⁿ
+      LogarithmicSingularity — denominator contains log(x/μ²) which zeroes out
 
-    Przykład: propagator gluonu QCD 1/(k²·(1 + αs·log(k²/μ²)))
-      singular_point     = μ²·exp(-1/αs)   ← biegun Landaua
-      pole_order         = 1               ← biegun prosty (log zeruje liniowo)
-      residue            = 1/αs            ← obliczone przez sp.residue
-      log_factor         = "1 + αs·log(k²/μ²)"  ← czynnik który się zeruje
+    Example: QCD gluon propagator 1/(k²·(1 + αs·log(k²/μ²)))
+      singular_point     = μ²·exp(-1/αs)   ← Landau pole
+      pole_order         = 1               ← simple pole (log zeroes linearly)
+      residue            = 1/αs            ← computed via sp.residue
+      log_factor         = "1 + αs·log(k²/μ²)"  ← factor that zeroes out
       laurent_hint       = "(1/αs) · 1/(k²-k²_L) + O(1)"
 
-    Fizyczne znaczenie:
-      Biegun Landaua QCD pojawia się w skali konfinementu (~ΛQCD).
-      Odpowiednik w QED jest niefizyczny (10^280 GeV).
-      Residuum 1/αs odzwierciedla siłę sprzężenia QCD w punkcie osobliwym.
+    Physical significance:
+      QCD Landau pole appears at the confinement scale (~ΛQCD).
+      Its counterpart in QED is unphysical (10^280 GeV).
+      Residue 1/αs reflects the coupling strength at the singular point.
 
-    Związek z Wheel:
-      Wheel(expr, k2=k2_L) = ⊥  (mianownik → 0, licznik = 1)
-      Typ: LOGARITHMIC — identyfikowany przez obecność log(var) w mianowniku.
+    Connection with Wheel:
+      Wheel(expr, k2=k2_L) = ⊥  (denominator → 0, numerator = 1)
+      Type: LOGARITHMIC — identified by the presence of log(var) in the denominator.
     """
-    expression:    sp.Basic           # oryginalne wyrażenie
+    expression:    sp.Basic           # original expression
     variables:     list[tuple]        # [(var, point), ...]
-    singular_point: sp.Basic          # wartość zmiennej w biegunieLandaua
-    pole_order:    int                # rząd bieguna (zazwyczaj 1)
-    residue:       Optional[sp.Basic] # residuum (sp.residue)
-    log_factor:    sp.Basic           # czynnik logarytmiczny który się zeruje
-    laurent_hint:  str = ""           # czytelny opis rozwinięcia
+    singular_point: sp.Basic          # variable value at the Landau pole
+    pole_order:    int                # pole order (usually 1)
+    residue:       Optional[sp.Basic] # residue (sp.residue)
+    log_factor:    sp.Basic           # logarithmic factor that zeroes out
+    laurent_hint:  str = ""           # readable description of the expansion
 
     @property
     def is_bottom(self) -> bool:
-        return True  # ⊥ w sensie Wheel — biegun logarytmiczny jest niesuwalny
+        return True  # ⊥ in the Wheel sense — a logarithmic pole is irremovable
 
     @property
     def is_logarithmic(self) -> bool:
@@ -417,44 +417,44 @@ class LogarithmicSingularity:
         res_str = f", res={self.residue}" if self.residue is not None else ""
         return (
             f"LogarithmicSingularity("
-            f"rząd={self.pole_order}{res_str}, "
-            f"przy [{vars_str}], log_factor={self.log_factor})"
+            f"order={self.pole_order}{res_str}, "
+            f"at [{vars_str}], log_factor={self.log_factor})"
         )
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def report(self) -> str:
-        """Czytelny raport dla użytkownika / logu."""
+        """Readable report for the user / log."""
         vars_str = ", ".join(f"{v}→{p}" for v, p in self.variables)
         lines = [
-            f"  Wyrażenie    : {self.expression}",
-            f"  Punkt        : {vars_str}",
-            f"  Punkt osobl. : {self.singular_point}",
-            f"  Wheel        : ⊥  (biegun log — czynnik log zeruje mianownik)",
-            f"  Typ          : BIEGUN LOGARYTMICZNY (rząd {self.pole_order})",
-            f"  Czynnik log  : {self.log_factor}",
-            f"  Rząd bieguna : {self.pole_order}",
+            f"  Expression   : {self.expression}",
+            f"  Point        : {vars_str}",
+            f"  Sing. point  : {self.singular_point}",
+            f"  Wheel        : ⊥  (log pole — log factor zeroes the denominator)",
+            f"  Type         : LOGARITHMIC POLE (order {self.pole_order})",
+            f"  Log factor   : {self.log_factor}",
+            f"  Pole order   : {self.pole_order}",
         ]
         if self.residue is not None:
-            lines.append(f"  Residuum     : {self.residue}")
+            lines.append(f"  Residue      : {self.residue}")
         else:
-            lines.append(f"  Residuum     : N/A")
+            lines.append(f"  Residue      : N/A")
         if self.laurent_hint:
             lines.append(f"  Laurent      : {self.laurent_hint}")
         lines.append(
-            f"  QCD          : residuum = 1/αs — siła sprzężenia w punkcie Landaua"
+            f"  QCD          : residue = 1/αs — coupling strength at the Landau point"
             if self.pole_order == 1 else
-            f"  QCD          : biegun logarytmiczny wyższego rzędu — anomalia"
+            f"  QCD          : higher-order logarithmic pole — anomaly"
         )
         return "\n".join(lines)
 
 
-# Unia typów zwracanych przez wheel_calculus
+# Union of types returned by wheel_calculus
 WheelCalcResult = Union[WheelNumber, RemovableSingularity, PoleSingularity, LogarithmicSingularity]
 
 
-# ─── Główna funkcja ────────────────────────────────────────────────────────────
+# ─── Main function ────────────────────────────────────────────────────────────
 
 def wheel_limit(
     expr:      sp.Basic,
@@ -463,79 +463,79 @@ def wheel_limit(
     verbose:   bool = False,
 ) -> WheelCalcResult:
     """
-    Główna funkcja wheel_calculus — ujednolicony interfejs.
+    Main function of wheel_calculus — unified interface.
 
-    Algorytm:
-      1. Sprawdź Wheel (wheel_subs). Jeśli skończony → zwróć WheelNumber.
-      2. Jeśli ⊥ → zbadaj przyczynę:
-         a. Czy to forma 0/0? (licznik I mianownik → 0)
-         b. Czy to prawdziwy biegun? (licznik ≠ 0, mianownik → 0)
-      3. Dla formy 0/0 → próbuj rozwinięcia Taylora (kolejno rzędy 1..max_order).
-      4. Jeśli Taylor da skończoną wartość → RemovableSingularity.
-      5. Jeśli Taylor nie pomaga → WheelNumber(BOTTOM) (nieusuwalna).
+    Algorithm:
+      1. Check Wheel (wheel_subs). If finite → return WheelNumber.
+      2. If ⊥ → investigate the cause:
+         a. Is it a 0/0 form? (numerator AND denominator → 0)
+         b. Is it a genuine pole? (numerator ≠ 0, denominator → 0)
+      3. For 0/0 form → attempt Taylor expansion (sequentially orders 1..max_order).
+      4. If Taylor yields a finite value → RemovableSingularity.
+      5. If Taylor does not help → WheelNumber(BOTTOM) (irremovable).
 
     Args:
-        expr:      wyrażenie SymPy
-        variables: lista par (symbol, wartość_graniczna)
-                   np. [(x, 0)] lub [(m, 0), (p, 0)]
-        max_order: maksymalny rząd rozwinięcia Taylora (default 8)
-        verbose:   czy drukować kroki diagnostyczne
+        expr:      SymPy expression
+        variables: list of pairs (symbol, limit_value)
+                   e.g. [(x, 0)] or [(m, 0), (p, 0)]
+        max_order: maximum Taylor expansion order (default 8)
+        verbose:   whether to print diagnostic steps
 
     Returns:
-        WheelNumber           — gdy punkt regularny lub nieusuwalna ⊥
-        RemovableSingularity  — gdy osobliwość usuwalna (Wheel=⊥, lim=val)
+        WheelNumber           — when regular point or irremovable ⊥
+        RemovableSingularity  — when removable singularity (Wheel=⊥, lim=val)
     """
     subs_dict = {var: point for var, point in variables}
 
     if verbose:
         print(f"\n{'─'*60}")
         print(f"  wheel_limit: {expr}")
-        print(f"  przy: {', '.join(f'{v}→{p}' for v,p in variables)}")
+        print(f"  at: {', '.join(f'{v}→{p}' for v,p in variables)}")
 
-    # ── Krok 1: Wynik Wheel ────────────────────────────────────────────────
+    # ── Step 1: Wheel Result ────────────────────────────────────────────────
     wheel_result = wheel_subs(expr, subs_dict)
 
     if not wheel_result.is_bottom:
         if verbose:
-            print(f"  Wheel: {wheel_result}  (regularny punkt, brak działania)")
+            print(f"  Wheel: {wheel_result}  (regular point, no action)")
         return wheel_result
 
     if verbose:
-        print(f"  Wheel: ⊥  — sprawdzam typ osobliwości...")
+        print(f"  Wheel: ⊥  — checking singularity type...")
 
-    # ── Krok 2: Diagnoza — 0/0 czy prawdziwy biegun? ──────────────────────
+    # ── Step 2: Diagnosis — 0/0 or genuine pole? ──────────────────────────
     singularity_type = _classify_singularity(expr, subs_dict, verbose)
 
     if singularity_type == "logarithmic_pole":
         if verbose:
-            print(f"  Typ: BIEGUN LOGARYTMICZNY (czynnik log zeruje mianownik) → analiza log")
+            print(f"  Type: LOGARITHMIC POLE (log factor zeroes the denominator) → log analysis")
         return _compute_logarithmic_pole(expr, variables, verbose)
 
     if singularity_type == "pole":
         if verbose:
-            print(f"  Typ: PRAWDZIWY BIEGUN (licznik≠0, mianownik→0) → analiza residuum")
+            print(f"  Type: GENUINE POLE (numerator≠0, denominator→0) → residue analysis")
         return _compute_pole(expr, variables, verbose)
 
     if singularity_type == "essential":
         if verbose:
-            print(f"  Typ: OSOBLIWOŚĆ ISTOTNA (np. exp(1/x)) → ⊥ nieusuwalna")
+            print(f"  Type: ESSENTIAL SINGULARITY (e.g. exp(1/x)) → irremovable ⊥")
         return W(BOTTOM)
 
     if singularity_type == "unknown":
         if verbose:
-            print(f"  Typ: nieznany — próbuję Taylora jako fallback")
+            print(f"  Type: unknown — attempting Taylor as a fallback")
 
-    # singularity_type == "removable_candidate" lub "unknown"
+    # singularity_type == "removable_candidate" or "unknown"
     if verbose:
-        print(f"  Typ: KANDYDAT na osobliwość usuwalną (forma 0/0) → próbuję Taylor")
+        print(f"  Type: CANDIDATE for removable singularity (0/0 form) → attempting Taylor")
 
-    # ── Krok 3: Rozwinięcie Taylora ────────────────────────────────────────
+    # ── Step 3: Taylor Expansion ───────────────────────────────────────────
     result = _try_taylor(expr, variables, max_order, verbose)
 
     if result is not None:
         limit_val, order, series_hint = result
         if verbose:
-            print(f"  Taylor rząd {order}: lim = {limit_val}  → USUWALNA ✓")
+            print(f"  Taylor order {order}: lim = {limit_val}  → REMOVABLE ✓")
         return RemovableSingularity(
             wheel_result=wheel_result,
             limit_value=limit_val,
@@ -545,13 +545,13 @@ def wheel_limit(
             series_hint=series_hint,
         )
 
-    # ── Krok 5: Taylor nie pomógł ─────────────────────────────────────────
+    # ── Step 5: Taylor didn't help ────────────────────────────────────────
     if verbose:
-        print(f"  Taylor do rzędu {max_order}: brak skończonej granicy → ⊥ nieusuwalna")
+        print(f"  Taylor to order {max_order}: no finite limit → irremovable ⊥")
     return W(BOTTOM)
 
 
-# ─── Klasyfikacja osobliwości ──────────────────────────────────────────────────
+# ─── Singularity classification ───────────────────────────────────────────────
 
 def _classify_singularity(
     expr: sp.Basic,
@@ -559,16 +559,16 @@ def _classify_singularity(
     verbose: bool = False,
 ) -> str:
     """
-    Klasyfikuje typ osobliwości przy danym podstawieniu.
+    Classifies the singularity type at a given substitution.
 
-    Zwraca:
-        "removable_candidate" — licznik I mianownik → 0 (forma 0/0)
-        "pole"                — licznik ≠ 0, mianownik → 0
-        "essential"           — osobliwość istotna (exp(1/x))
-        "unknown"             — nie da się sklasyfikować
+    Returns:
+        "removable_candidate" — numerator AND denominator → 0 (0/0 form)
+        "pole"                — numerator ≠ 0, denominator → 0
+        "essential"           — essential singularity (exp(1/x))
+        "unknown"             — cannot be classified
     """
     try:
-        # Rozdziel na licznik i mianownik
+        # Separate into numerator and denominator
         numer, denom = sp.fraction(sp.cancel(expr))
 
         numer_sub = sp.simplify(numer.subs(subs_dict))
@@ -581,7 +581,7 @@ def _classify_singularity(
             hasattr(denom_sub, 'is_zero') and denom_sub.is_zero
         ) or denom_sub in (sp.zoo, sp.nan, sp.oo, -sp.oo)
 
-        # Gdy subs daje nan (np. 0*log(0)), użyj sp.limit jako fallback
+        # When subs yields nan (e.g. 0*log(0)), use sp.limit as a fallback
         if denom_sub is sp.nan or denom_sub == sp.nan:
             try:
                 if len(subs_dict) == 1:
@@ -589,46 +589,46 @@ def _classify_singularity(
                     denom_lim = sp.limit(denom, v, pt)
                     denom_is_zero = (denom_lim == sp.S.Zero)
                     if verbose:
-                        print(f"    mianownik@subs=nan → sp.limit={denom_lim} {'(→0)' if denom_is_zero else ''}")
+                        print(f"    denominator@subs=nan → sp.limit={denom_lim} {'(→0)' if denom_is_zero else ''}")
             except Exception:
                 pass
 
         if verbose:
-            print(f"    licznik po podstawieniu : {numer_sub} {'(=0)' if numer_is_zero else ''}")
-            print(f"    mianownik po podstawieniu: {denom_sub} {'(=0)' if denom_is_zero else ''}")
+            print(f"    numerator after substitution  : {numer_sub} {'(=0)' if numer_is_zero else ''}")
+            print(f"    denominator after substitution: {denom_sub} {'(=0)' if denom_is_zero else ''}")
 
         if numer_is_zero and denom_is_zero:
             return "removable_candidate"
         elif not numer_is_zero and denom_is_zero:
-            # Sprawdź czy biegun pochodzi z czynnika logarytmicznego.
-            # Używamy sp.denom(expr) zamiast sp.fraction(sp.cancel(expr)) —
-            # sp.cancel rozszerza mianownik i niszczy strukturę czynnikową.
-            # sp.denom zachowuje czynniki: k2*(1 + αs·log(k2/μ²)) → [k2, 1+αs·log(...)].
+            # Check if the pole comes from a logarithmic factor.
+            # We use sp.denom(expr) instead of sp.fraction(sp.cancel(expr)) —
+            # sp.cancel expands the denominator and destroys the factor structure.
+            # sp.denom preserves factors: k2*(1 + αs·log(k2/μ²)) → [k2, 1+αs·log(...)].
             #
-            # Dwa przypadki bieguna logarytmicznego:
-            #   (A) Czynnik log zeruje się: 1+αs·log(k2/μ²)=0 → biegun Landaua
-            #   (B) Czynnik log dywerguje i dominuje: log(k2/μ²)→-∞ przy k2→0
-            #       Wtedy k2^n * f → 0 dla każdego n (brak rzędu algebraicznego)
+            # Two cases of logarithmic pole:
+            #   (A) Log factor zeroes out: 1+αs·log(k2/μ²)=0 → Landau pole
+            #   (B) Log factor diverges and dominates: log(k2/μ²)→-∞ as k2→0
+            #       Then k2^n * f → 0 for any n (no algebraic order)
             try:
                 raw_denom = sp.denom(expr)
                 denom_factors = sp.Mul.make_args(raw_denom)
                 for fac in denom_factors:
                     if fac.has(sp.log):
-                        # Przypadek A: czynnik log zeruje się w punkcie
+                        # Case A: log factor zeroes out at the point
                         fac_val = sp.simplify(fac.subs(subs_dict))
                         if fac_val == sp.S.Zero:
                             if verbose:
-                                print(f"    czynnik log {fac} → 0 → BIEGUN LOG (Landau)")
+                                print(f"    log factor {fac} → 0 → LOG POLE (Landau)")
                             return "logarithmic_pole"
-                        # Przypadek B: czynnik log dywerguje → brak rzędu alg.
-                        # Test: lim (var-point)^1 * expr = 0 (nie skończone niezerowe)
+                        # Case B: log factor diverges → no alg. order
+                        # Test: lim (var-point)^1 * expr = 0 (not finite non-zero)
                         if len(subs_dict) == 1:
                             v, pt = list(subs_dict.items())[0]
                             try:
                                 test_lim = sp.limit((v - pt) * expr, v, pt)
                                 if test_lim == sp.S.Zero:
                                     if verbose:
-                                        print(f"    lim (x-x0)·f=0 przy log w denom → BIEGUN LOG (IR)")
+                                        print(f"    lim (x-x0)·f=0 with log in denom → LOG POLE (IR)")
                                     return "logarithmic_pole"
                             except Exception:
                                 pass
@@ -636,7 +636,7 @@ def _classify_singularity(
                 pass
             return "pole"
 
-        # Sprawdź czy to osobliwość istotna (exp(1/x) itp.)
+        # Check if it is an essential singularity (exp(1/x) etc.)
         if _has_essential_singularity(expr, subs_dict):
             return "essential"
 
@@ -653,33 +653,33 @@ def _compute_pole(
     max_order: int = 8,
 ) -> WheelCalcResult:
     """
-    Oblicza rząd bieguna i residuum dla niesuwalnej osobliwości.
+    Computes pole order and residue for an irremovable singularity.
 
-    Algorytm:
-      Dla n = 1, 2, ..., max_order:
+    Algorithm:
+      For n = 1, 2, ..., max_order:
         candidate = lim_{x→x0} (x - x0)^n · f(x)
-        Jeśli candidate skończony i niezerowy → rząd = n
-        Jeśli candidate = 0 → za niski rząd, próbuj n+1
-        Jeśli candidate = ∞ → błąd obliczeń, próbuj n+1
+        If candidate is finite and non-zero → order = n
+        If candidate = 0 → order too low, try n+1
+        If candidate = ∞ → computation error, try n+1
 
-    Residuum:
-      Dla rzędu 1: res = candidate  (bo res = lim (x-x0)¹ · f(x))
-      Dla rzędu n: res = candidate / (n-1)!  — uogólniony wzór
-      Ale fizycznie sensowne residuum (w sensie Cauchy'ego) tylko dla n=1.
+    Residue:
+      For order 1: res = candidate  (because res = lim (x-x0)¹ · f(x))
+      For order n: res = candidate / (n-1)!  — generalized formula
+      But physically meaningful residue (in Cauchy's sense) only for n=1.
 
-    Obsługa wielozmiennowa:
-      Dla wielu zmiennych analiza po pierwszej zmiennej (główna osobliwość).
-      Pozostałe zmienne traktowane jako parametry.
+    Multivariate handling:
+      For multiple variables, analysis based on the first variable (main singularity).
+      Other variables treated as parameters.
 
     Returns:
-        PoleSingularity — jeśli udało się obliczyć rząd i residuum
-        WheelNumber(⊥) — fallback gdy obliczenie niemożliwe
+        PoleSingularity — if successfully calculated order and residue
+        WheelNumber(⊥) — fallback when computation is impossible
     """
-    # Dla wielu zmiennych: analiza po pierwszej
+    # For multiple variables: analysis based on the first one
     if len(variables) == 1:
         var, point = variables[0]
     else:
-        # Znajdź zmienną względem której mianownik zeruje się
+        # Find the variable with respect to which the denominator zeroes out
         var, point = variables[0]
         for v, p in variables:
             try:
@@ -696,32 +696,32 @@ def _compute_pole(
             candidate = sp.limit(factor * expr, var, point)
 
             if candidate in (sp.oo, -sp.oo, sp.zoo, sp.nan):
-                continue  # za niski rząd
+                continue  # order too low
 
             if candidate == sp.S.Zero:
-                continue  # też za niski — wyrażenie zanika szybciej
+                continue  # also too low — expression vanishes faster
 
-            # Mamy skończony, niezerowy wynik — to jest rząd bieguna
+            # We have a finite, non-zero result — this is the pole order
             candidate = sp.simplify(candidate)
 
-            # Residuum: tylko dla prostego bieguna (n=1)
+            # Residue: only for simple pole (n=1)
             if n == 1:
                 residue = candidate
             else:
-                # Uogólniony współczynnik Laurenta: a_{-n} = candidate/(n-1)!
-                residue = None   # Cauchy residuum zdefiniowane tylko dla n=1
+                # Generalized Laurent coefficient: a_{-n} = candidate/(n-1)!
+                residue = None   # Cauchy residue defined only for n=1
 
-            # Zbuduj hint rozwinięcia Laurenta
+            # Build Laurent expansion hint
             if n == 1:
                 hint = f"({candidate}) · 1/({var}-{point}) + O(1)"
             else:
                 hint = f"({candidate}) · 1/({var}-{point})^{n} + O(1/({var}-{point})^{n-1})"
 
             if verbose:
-                print(f"  Rząd bieguna : {n}")
-                print(f"  Wsp. główny  : {candidate}")
+                print(f"  Pole order   : {n}")
+                print(f"  Prin. coeff. : {candidate}")
                 if n == 1:
-                    print(f"  Residuum     : {residue}")
+                    print(f"  Residue      : {residue}")
                 print(f"  Laurent      : {hint}")
 
             return PoleSingularity(
@@ -735,12 +735,12 @@ def _compute_pole(
 
         except Exception as e:
             if verbose:
-                print(f"  Rząd {n}: błąd ({e}), próbuję wyższy")
+                print(f"  Order {n}: error ({e}), attempting higher")
             continue
 
-    # Fallback — nie udało się obliczyć
+    # Fallback — failed to calculate
     if verbose:
-        print(f"  Residue analysis nie powiodła się → ⊥ (fallback)")
+        print(f"  Residue analysis failed → ⊥ (fallback)")
     return W(BOTTOM)
 
 
@@ -750,23 +750,23 @@ def _compute_logarithmic_pole(
     verbose:   bool = False,
 ) -> WheelCalcResult:
     """
-    Analiza bieguna logarytmicznego — czynnik log(var/μ²) zeruje się w mianowniku.
+    Logarithmic pole analysis — log factor log(var/μ²) zeroes out in the denominator.
 
-    Strategia:
-      1. Zidentyfikuj zmienną i punkt osobliwy (mianownik → 0).
-      2. Wyodrębnij czynnik logarytmiczny z mianownika.
-      3. Oblicz residuum przez sp.residue (działa dla biegunów prostych log).
-      4. Sprawdź rząd przez lim (x-x0)^n · f(x).
-      5. Zbuduj hint rozwinięcia Laurenta.
+    Strategy:
+      1. Identify the variable and singular point (denominator → 0).
+      2. Extract the logarithmic factor from the denominator.
+      3. Compute residue via sp.residue (works for simple log poles).
+      4. Check the order via lim (x-x0)^n · f(x).
+      5. Build the Laurent expansion hint.
 
-    Dlaczego sp.residue zamiast sp.limit * (x-x0)?
-      sp.residue używa wewnętrznego rozwinięcia Laurenta SymPy,
-      które poprawnie obsługuje czynniki log w mianowniku.
+    Why sp.residue instead of sp.limit * (x-x0)?
+      sp.residue uses SymPy's internal Laurent expansion,
+      which correctly handles log factors in the denominator.
 
     Returns:
-        LogarithmicSingularity  — gdy udało się obliczyć rząd i residuum
-        PoleSingularity         — fallback gdy czynnik log nie wpływa na rząd
-        WheelNumber(⊥)          — fallback gdy obliczenie niemożliwe
+        LogarithmicSingularity  — when successfully calculated order and residue
+        PoleSingularity         — fallback when log factor does not affect the order
+        WheelNumber(⊥)          — fallback when computation is impossible
     """
     if len(variables) == 1:
         var, point = variables[0]
@@ -782,11 +782,11 @@ def _compute_logarithmic_pole(
                 pass
 
     try:
-        # Wyodrębnij czynnik logarytmiczny i ustal typ bieguna.
+        # Extract logarithmic factor and establish pole type.
         raw_denom = sp.denom(expr)
         denom_factors = sp.Mul.make_args(raw_denom)
         log_factor = None
-        log_type = "landau"   # "landau" = log zeruje się | "ir" = log dywerguje
+        log_type = "landau"   # "landau" = log zeroes out | "ir" = log diverges
 
         for fac in denom_factors:
             if fac.has(sp.log):
@@ -796,11 +796,11 @@ def _compute_logarithmic_pole(
                     log_type = "landau"
                     break
                 else:
-                    # Przypadek IR: log dywerguje, ale czynnik algebraiczny też → 0
+                    # IR case: log diverges, but algebraic factor also → 0
                     log_factor = fac
                     log_type = "ir"
 
-        # Fallback dla log_factor
+        # Fallback for log_factor
         if log_factor is None:
             _, denom_fb = sp.fraction(sp.cancel(expr))
             log_atoms = [a for a in denom_fb.atoms(sp.log) if a.has(var)]
@@ -808,40 +808,40 @@ def _compute_logarithmic_pole(
             log_type = "ir"
 
         if verbose:
-            print(f"  Czynnik log  : {log_factor}  [{log_type}]")
+            print(f"  Log factor   : {log_factor}  [{log_type}]")
 
-        # Przypadek IR: lim (x-x0)^n * f = 0 dla każdego n
-        # Brak rzędu algebraicznego — biegun logarytmicznie wzmocniony
+        # IR case: lim (x-x0)^n * f = 0 for every n
+        # No algebraic order — logarithmically enhanced pole
         if log_type == "ir":
             try:
-                # Oblicz residuum przez sp.residue (może zadziałać)
+                # Calculate residue via sp.residue (might work)
                 try:
                     residue = sp.residue(expr, var, point)
                     residue = sp.simplify(residue)
                 except Exception:
                     residue = None
 
-                hint = f"biegun IR log: 1/({var}·log({var}/μ²)) — brak rzędu alg."
+                hint = f"IR log pole: 1/({var}·log({var}/μ²)) — no alg. order"
                 if verbose:
-                    print(f"  Typ IR       : logarytmicznie wzmocniony (lim x^n·f=0 ∀n)")
-                    print(f"  Residuum     : {residue}")
+                    print(f"  IR Type      : logarithmically enhanced (lim x^n·f=0 ∀n)")
+                    print(f"  Residue      : {residue}")
                     print(f"  Laurent      : {hint}")
 
                 return LogarithmicSingularity(
                     expression=expr,
                     variables=variables,
                     singular_point=point,
-                    pole_order=1,    # konwencja: raportujemy rząd "efektywny"
+                    pole_order=1,    # convention: report "effective" order
                     residue=residue,
                     log_factor=log_factor,
                     laurent_hint=hint,
                 )
             except Exception as e:
                 if verbose:
-                    print(f"  IR fallback błąd: {e}")
+                    print(f"  IR fallback error: {e}")
                 return W(BOTTOM)
 
-        # Oblicz residuum przez SymPy (obsługuje log w mianowniku)
+        # Compute residue via SymPy (handles log in denominator)
         try:
             residue = sp.residue(expr, var, point)
             residue = sp.simplify(residue)
@@ -849,11 +849,11 @@ def _compute_logarithmic_pole(
                 print(f"  sp.residue   : {residue}")
         except Exception as e:
             if verbose:
-                print(f"  sp.residue błąd: {e}")
+                print(f"  sp.residue error: {e}")
             residue = None
 
-        # Sprawdź rząd bieguna przez lim (x-x0)^n · f(x)
-        pole_order = 1  # domyślnie — bieguny log są zazwyczaj rzędu 1
+        # Check pole order via lim (x-x0)^n · f(x)
+        pole_order = 1  # default — log poles are usually order 1
         for n in range(1, 6):
             try:
                 factor = (var - point) ** n
@@ -864,18 +864,18 @@ def _compute_logarithmic_pole(
                     continue
                 pole_order = n
                 if verbose:
-                    print(f"  Rząd bieguna : {n} (lim (x-x0)^{n}·f = {sp.simplify(cand)})")
+                    print(f"  Pole order   : {n} (lim (x-x0)^{n}·f = {sp.simplify(cand)})")
                 break
             except Exception:
                 continue
 
-        # Zbuduj hint Laurenta
+        # Build Laurent hint
         if residue is not None and pole_order == 1:
             hint = f"({residue}) · 1/({var}-{point}) + O(1)"
         elif residue is not None:
             hint = f"({residue}) · 1/({var}-{point})^{pole_order} + O(1/({var}-{point})^{pole_order-1})"
         else:
-            hint = f"biegun log rzędu {pole_order} przy {var}={point}"
+            hint = f"log pole of order {pole_order} at {var}={point}"
 
         if verbose:
             print(f"  Laurent      : {hint}")
@@ -892,18 +892,18 @@ def _compute_logarithmic_pole(
 
     except Exception as e:
         if verbose:
-            print(f"  _compute_logarithmic_pole błąd: {e} → fallback ⊥")
+            print(f"  _compute_logarithmic_pole error: {e} → fallback ⊥")
         return W(BOTTOM)
 
 
 def _has_essential_singularity(expr: sp.Basic, subs_dict: dict) -> bool:
-    """Heurystyczna detekcja osobliwości istotnych (exp(1/x), sin(1/x))."""
+    """Heuristic detection of essential singularities (exp(1/x), sin(1/x))."""
     try:
         expr_str = str(expr)
-        # Proste heurystyki — exp(1/x) przy x=0
+        # Simple heuristics — exp(1/x) at x=0
         for var, point in subs_dict.items():
             if point == sp.S.Zero:
-                # Szukamy wzorców 1/var wewnątrz funkcji transcendentnych
+                # Looking for 1/var patterns inside transcendental functions
                 if expr.has(sp.exp) or expr.has(sp.sin) or expr.has(sp.cos):
                     inner_check = expr.subs(var, sp.Symbol('_test_eps'))
                     if f"1/_test_eps" in str(inner_check) or f"/_test_eps" in str(inner_check):
@@ -913,7 +913,7 @@ def _has_essential_singularity(expr: sp.Basic, subs_dict: dict) -> bool:
         return False
 
 
-# ─── Rozwinięcie Taylora ───────────────────────────────────────────────────────
+# ─── Taylor Expansion ─────────────────────────────────────────────────────────
 
 def _try_taylor(
     expr:      sp.Basic,
@@ -922,22 +922,22 @@ def _try_taylor(
     verbose:   bool,
 ) -> Optional[tuple[sp.Basic, int, str]]:
     """
-    Próbuje obliczyć wartość graniczną przez rozwinięcie Taylora.
+    Attempts to compute the limit value via Taylor expansion.
 
-    Strategia dla jednej zmiennej:
-      Rozwiń expr w szereg wokół punktu:
+    Single variable strategy:
+      Expand expr into a series around the point:
         expr = a_n*(x-x0)^n + a_{n+1}*(x-x0)^{n+1} + ...
-      Jeśli najniższy rząd n = 0 → granica = a_0 (skończona).
-      Jeśli n > 0 → granica = 0 (wyrażenie → 0).
-      Jeśli n < 0 → prawdziwy biegun (potwierdzenie ⊥).
+      If lowest order n = 0 → limit = a_0 (finite).
+      If n > 0 → limit = 0 (expression → 0).
+      If n < 0 → genuine pole (confirmation of ⊥).
 
-    Strategia dla wielu zmiennych:
-      Iteracyjne podstawianie: najpierw Taylor po x1, potem po x2...
-      Jeśli którakolwiek daje biegun → ⊥.
+    Multi-variable strategy:
+      Iterative substitution: first Taylor over x1, then over x2...
+      If any yields a pole → ⊥.
 
     Returns:
-        (limit_value, order, series_hint) jeśli znaleziono granicę
-        None jeśli biegun lub nie można obliczyć
+        (limit_value, order, series_hint) if limit found
+        None if a pole or cannot be calculated
     """
     if len(variables) == 1:
         return _taylor_single(expr, variables[0][0], variables[0][1], max_order, verbose)
@@ -952,42 +952,42 @@ def _taylor_single(
     max_order: int,
     verbose:   bool,
 ) -> Optional[tuple[sp.Basic, int, str]]:
-    """Taylor dla jednej zmiennej."""
+    """Taylor for a single variable."""
     for order in range(1, max_order + 1):
         try:
-            # Rozwinięcie Laurenta/Taylora do rzędu `order`
+            # Laurent/Taylor expansion up to `order`
             series = sp.series(expr, var, point, n=order + 2)
 
             if verbose and order == 1:
-                print(f"    Szereg Laurenta: {series}")
+                print(f"    Laurent series: {series}")
 
-            # Usuń człon O(...)
+            # Remove O(...) term
             series_no_O = series.removeO()
 
-            # Oblicz granicę — podstaw var=point do rozwinięcia
+            # Compute limit — substitute var=point into the expansion
             limit_candidate = sp.simplify(series_no_O.subs(var, point))
 
-            # Sprawdź czy wynik jest skończony
+            # Check if the result is finite
             if _is_finite_value(limit_candidate):
-                # Zbuduj czytelny hint
+                # Build readable hint
                 series_str = str(series).replace("O(", "O(").replace("\n", "")
                 if len(series_str) > 80:
                     series_str = series_str[:77] + "..."
                 return limit_candidate, order, series_str
 
-            # Jeśli limit_candidate zawiera nieskończoność → biegun
+            # If limit_candidate contains infinity → pole
             if limit_candidate in (sp.oo, sp.zoo, sp.nan, -sp.oo):
                 if verbose:
-                    print(f"    Rząd {order}: granica → {limit_candidate} (biegun)")
+                    print(f"    Order {order}: limit → {limit_candidate} (pole)")
                 return None
 
         except (sp.core.power.PoleError, ZeroDivisionError):
             if verbose:
-                print(f"    Rząd {order}: PoleError — prawdziwy biegun")
+                print(f"    Order {order}: PoleError — genuine pole")
             return None
         except Exception as e:
             if verbose:
-                print(f"    Rząd {order}: błąd ({e}), próbuję wyższy rząd")
+                print(f"    Order {order}: error ({e}), trying higher order")
             continue
 
     return None
@@ -1000,13 +1000,13 @@ def _taylor_multivar(
     verbose:   bool,
 ) -> Optional[tuple[sp.Basic, int, str]]:
     """
-    Taylor dla wielu zmiennych — iteracyjny.
+    Multi-variable Taylor — iterative.
 
-    Strategia: podstawiaj zmienne jedna po drugiej, każdorazowo
-    obliczając szereg Taylora. Jeśli któraś daje biegun → None.
+    Strategy: substitute variables one by one, calculating
+    Taylor series each time. If any yields a pole → None.
 
-    Ograniczenie: kolejność podstawień może mieć znaczenie.
-    Próbujemy obie kolejności i bierzemy wynik niesprzeczny.
+    Limitation: substitution order may matter.
+    We try both orders and take the non-contradictory result.
     """
     from itertools import permutations
 
@@ -1017,7 +1017,7 @@ def _taylor_multivar(
         if result is not None:
             val, order, hint = result
             if _is_finite_value(val):
-                # Sprawdź czy inne kolejności dają ten sam wynik
+                # Check if other orders give the same result
                 if best_result is None:
                     best_result = result
                 else:
@@ -1025,10 +1025,10 @@ def _taylor_multivar(
                     try:
                         if sp.simplify(val - prev_val) != sp.S.Zero:
                             if verbose:
-                                print(f"    ⚠ Różne kolejności dają różne granice!")
+                                print(f"    ⚠ Different substitution orders yield different limits!")
                                 print(f"      {perm} → {val}")
-                                print(f"      poprzednia → {prev_val}")
-                            # Wybierz prostszą wartość
+                                print(f"      previous → {prev_val}")
+                            # Choose the simpler value
                             best_result = result if sp.count_ops(val) < sp.count_ops(prev_val) else best_result
                     except Exception:
                         pass
@@ -1038,7 +1038,7 @@ def _taylor_multivar(
         max_ord = max(order, len(variables))
         return val, max_ord, hint
 
-    # Fallback: użyj sp.limit bezpośrednio (dla prostych przypadków)
+    # Fallback: use sp.limit directly (for simple cases)
     return _sympy_limit_fallback(expr, variables, verbose)
 
 
@@ -1048,7 +1048,7 @@ def _taylor_sequential(
     max_order: int,
     verbose:   bool,
 ) -> Optional[tuple[sp.Basic, int, str]]:
-    """Sekwencyjne podstawianie Taylor dla listy zmiennych."""
+    """Sequential Taylor substitution for a list of variables."""
     current_expr = expr
     max_used_order = 1
 
@@ -1058,11 +1058,11 @@ def _taylor_sequential(
             return None
         limit_val, order, hint = result
         max_used_order = max(max_used_order, order)
-        # Podstaw wartość graniczną do kolejnego kroku
+        # Substitute the limit value for the next step
         current_expr = sp.sympify(limit_val)
 
     if _is_finite_value(current_expr):
-        return current_expr, max_used_order, f"wielozmiennowe ({len(variables)} zmiennych)"
+        return current_expr, max_used_order, f"multivariate ({len(variables)} variables)"
     return None
 
 
@@ -1072,8 +1072,8 @@ def _sympy_limit_fallback(
     verbose:   bool,
 ) -> Optional[tuple[sp.Basic, int, str]]:
     """
-    Fallback: użyj sp.limit bezpośrednio gdy Taylor zawodzi.
-    Działa dla prostszych wielozmiennowych przypadków.
+    Fallback: use sp.limit directly when Taylor fails.
+    Works for simpler multivariable cases.
     """
     try:
         current = expr
@@ -1088,14 +1088,14 @@ def _sympy_limit_fallback(
             return current, 0, "sp.limit (fallback)"
     except Exception as e:
         if verbose:
-            print(f"    Fallback sp.limit błąd: {e}")
+            print(f"    Fallback sp.limit error: {e}")
     return None
 
 
-# ─── Pomocnicze ────────────────────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _is_finite_value(val) -> bool:
-    """Czy wartość jest skończona i dobrze określona."""
+    """Is the value finite and well-defined."""
     if val is None:
         return False
     try:
@@ -1104,7 +1104,7 @@ def _is_finite_value(val) -> bool:
         if hasattr(val, 'has'):
             if val.has(sp.oo) or val.has(sp.zoo) or val.has(sp.nan):
                 return False
-            # Sprawdź czy nie zawiera O(...)
+            # Check if it does not contain O(...)
             if val.has(sp.Order):
                 return False
         return True
@@ -1112,7 +1112,7 @@ def _is_finite_value(val) -> bool:
         return False
 
 
-# ─── Klasyfikacja wyrażenia — pełna analiza ────────────────────────────────────
+# ─── Expression classification — full analysis ────────────────────────────────
 
 def analyse_singularity(
     expr:      sp.Basic,
@@ -1122,14 +1122,14 @@ def analyse_singularity(
     verbose:   bool = True,
 ) -> WheelCalcResult:
     """
-    Pełna analiza osobliwości z raportem.
-    Wrapper wokół wheel_limit z bardziej szczegółowym wyjściem.
+    Full singularity analysis with report.
+    Wrapper around wheel_limit with more detailed output.
     """
     if verbose:
         print(f"\n{'═'*62}")
-        print(f"  ANALIZA: {name or expr}")
+        print(f"  ANALYSIS: {name or expr}")
         vars_str = ", ".join(f"{v}→{p}" for v,p in variables)
-        print(f"  Punkt  : {vars_str}")
+        print(f"  Point   : {vars_str}")
         print(f"{'─'*62}")
 
     result = wheel_limit(expr, variables, max_order=max_order, verbose=verbose)
@@ -1138,19 +1138,19 @@ def analyse_singularity(
         print()
         if isinstance(result, RemovableSingularity):
             print(result.report())
-            print(f"\n  ✓ WYNIK: osobliwość USUWALNA → lim = {result.limit_value}")
+            print(f"\n  ✓ RESULT: REMOVABLE singularity → lim = {result.limit_value}")
         elif isinstance(result, LogarithmicSingularity):
             print(result.report())
             res_str = f", res={result.residue}" if result.residue is not None else ""
-            print(f"\n  ✗ WYNIK: BIEGUN LOGARYTMICZNY rzędu {result.pole_order}{res_str} → ⊥")
+            print(f"\n  ✗ RESULT: LOGARITHMIC POLE of order {result.pole_order}{res_str} → ⊥")
         elif isinstance(result, PoleSingularity):
             print(result.report())
             res_str = f", res={result.residue}" if result.residue is not None else ""
-            print(f"\n  ✗ WYNIK: BIEGUN rzędu {result.pole_order}{res_str} → ⊥")
+            print(f"\n  ✗ RESULT: POLE of order {result.pole_order}{res_str} → ⊥")
         elif result.is_bottom:
-            print(f"  ✗ WYNIK: osobliwość NIEUSUWALNA → ⊥")
+            print(f"  ✗ RESULT: IRREMOVABLE singularity → ⊥")
         else:
-            print(f"  ✓ WYNIK: punkt regularny → {result}")
+            print(f"  ✓ RESULT: regular point → {result}")
         print(f"{'═'*62}")
 
     return result
@@ -1162,16 +1162,16 @@ def classify_batch(
     verbose: bool = True,
 ) -> list[dict]:
     """
-    Analizuje batch wyrażeń i zwraca tabelę wyników.
+    Analyzes a batch of expressions and returns a results table.
 
-    cases: lista słowników z kluczami:
+    cases: list of dictionaries with keys:
         name: str
         expr: sp.Basic
         variables: [(var, point), ...]
-        expected_limit: sp.Basic lub None (opcjonalnie do weryfikacji)
+        expected_limit: sp.Basic or None (optional for verification)
 
     Returns:
-        lista wyników z polami:
+        list of results with fields:
             name, result_type, wheel, limit, order, correct
     """
     results = []
@@ -1224,19 +1224,19 @@ def classify_batch(
         if verbose:
             mark = "✓" if correct else "✗"
             if r_type == "REMOVABLE":
-                type_str = f"{'USUWALNA':12}"
+                type_str = f"{'REMOVABLE':12}"
             elif r_type == "LOG_POLE":
                 res_str = f" res={result.residue}" if result.residue is not None else ""
-                type_str = f"{'BIEGUN_LOG['+str(order)+']':14}"
+                type_str = f"{'LOG_POLE['+str(order)+']':14}"
             elif r_type == "POLE":
                 res_str = f" res={result.residue}" if result.residue is not None else ""
-                type_str = f"{'BIEGUN['+str(order)+']':12}"
+                type_str = f"{'POLE['+str(order)+']':12}"
             elif r_type == "BOTTOM":
                 type_str = f"{'BOTTOM':12}"
             else:
-                type_str = f"{'REGULARNY':12}"
+                type_str = f"{'REGULAR':12}"
             lim_str = str(lim)[:20]
-            exp_str = f" (oczekiwano: {expected})" if expected is not None and not correct else ""
+            exp_str = f" (expected: {expected})" if expected is not None and not correct else ""
             extra = ""
             if r_type == "POLE" and result.residue is not None:
                 extra = f" | res={result.residue}"
@@ -1252,12 +1252,12 @@ def _values_match(a, b) -> bool:
         return str(a) == str(b)
 
 
-# ─── Testy i demo ──────────────────────────────────────────────────────────────
+# ─── Tests and demo ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("═" * 62)
-    print("  wheel_calculus.py — Wheel + rozszerzenie analityczne")
-    print("  Trójpodział: skończone | ⊥ nieusuwalna | ⊥→val usuwalna")
+    print("  wheel_calculus.py — Wheel + analytical extension")
+    print("  Tripartite division: finite | irremovable ⊥ | removable ⊥→val")
     print("═" * 62)
 
     x, m, p, r, r_s, omega, omega0 = sp.symbols(
@@ -1265,10 +1265,10 @@ if __name__ == "__main__":
     )
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 1: Znane kontrprzykłady z bazy (powinny → USUWALNE)
+    # SECTION 1: Known counterexamples from DB (should → REMOVABLE)
     # ════════════════════════════════════════════════════════════
-    print("\n▶  KONTRPRZYKŁADY — osobliwości usuwalne")
-    print("   (Wheel daje ⊥, ale granica istnieje)\n")
+    print("\n▶  COUNTEREXAMPLES — removable singularities")
+    print("   (Wheel yields ⊥, but limit exists)\n")
 
     cases_removable = [
         {
@@ -1296,7 +1296,7 @@ if __name__ == "__main__":
             "expected_limit": sp.S.One,
         },
         {
-            "name": "(x² - 1)/(x - 1)  przy x=1",
+            "name": "(x² - 1)/(x - 1)  at x=1",
             "expr": (x**2 - 1) / (x - 1),
             "variables": [(x, sp.S.One)],
             "expected_limit": sp.Integer(2),
@@ -1308,128 +1308,128 @@ if __name__ == "__main__":
             "expected_limit": sp.S.One,
         },
         {
-            "name": "(sin(3x))/(sin(5x))  przy x=0",
+            "name": "(sin(3x))/(sin(5x))  at x=0",
             "expr": sp.sin(3*x) / sp.sin(5*x),
             "variables": [(x, sp.S.Zero)],
             "expected_limit": sp.Rational(3, 5),
         },
     ]
 
-    print(f"  {'Równanie':<42} {'Typ':<14} {'lim':<10} {'OK?'}")
+    print(f"  {'Equation':<42} {'Type':<14} {'lim':<10} {'OK?'}")
     print(f"  {'─'*42} {'─'*14} {'─'*10} {'─'*4}")
     classify_batch(cases_removable, max_order=8, verbose=True)
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 2: Prawdziwe bieguny z residue analysis
+    # SECTION 2: Genuine poles with residue analysis
     # ════════════════════════════════════════════════════════════
-    print("\n▶  BIEGUNY ALGEBRAICZNE — rząd + residuum (Cauchy)\n")
+    print("\n▶  ALGEBRAIC POLES — order + residue (Cauchy)\n")
 
     cases_poles = [
         {
-            "name": "1/x przy x=0",
+            "name": "1/x at x=0",
             "expr": 1/x,
             "variables": [(x, sp.S.Zero)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "Propagator skalarny 1/(p²-m²) przy p=m",
+            "name": "Scalar propagator 1/(p²-m²) at p=m",
             "expr": 1/(p**2 - m**2),
             "variables": [(p, m)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "g_rr Schwarzschilda przy r=r_s",
+            "name": "Schwarzschild g_rr at r=r_s",
             "expr": 1/(1 - r_s/r),
             "variables": [(r, r_s)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "Rezonans 1/(ω²-ω₀²) przy ω=ω₀",
+            "name": "Resonance 1/(ω²-ω₀²) at ω=ω₀",
             "expr": 1/(omega**2 - omega0**2),
             "variables": [(omega, omega0)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "Biegun podwójny 1/(p-m)²",
+            "name": "Double pole 1/(p-m)²",
             "expr": 1/(p - m)**2,
             "variables": [(p, m)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "Biegun podwójny 1/x²",
+            "name": "Double pole 1/x²",
             "expr": 1/x**2,
             "variables": [(x, sp.S.Zero)],
             "expected_limit": sp.zoo,
         },
     ]
 
-    print(f"  {'Równanie':<42} {'Typ':<14} {'res':<20} {'OK?'}")
+    print(f"  {'Equation':<42} {'Type':<14} {'res':<20} {'OK?'}")
     print(f"  {'─'*42} {'─'*14} {'─'*20} {'─'*4}")
     classify_batch(cases_poles, max_order=8, verbose=True)
 
-    # Szczegółowa analiza propagatora
+    # Detailed propagator analysis
     print()
     analyse_singularity(
         1/(p**2 - m**2),
         [(p, m)],
-        name="Propagator skalarny 1/(p²-m²) — pełna analiza",
+        name="Scalar propagator 1/(p²-m²) — full analysis",
         max_order=6,
         verbose=True,
     )
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 3: Punkty regularne (Wheel daje skończoną wartość)
+    # SECTION 3: Regular points (Wheel yields finite value)
     # ════════════════════════════════════════════════════════════
-    print("\n▶  PUNKTY REGULARNE — Wheel OK, calculus nie ingeruje\n")
+    print("\n▶  REGULAR POINTS — Wheel OK, calculus does not interfere\n")
 
     x_sym = sp.Symbol("x", positive=True)
     cases_regular = [
         {
-            "name": "1/(p²+m²) przy p=0, m=1",
+            "name": "1/(p²+m²) at p=0, m=1",
             "expr": 1/(p**2 + m**2),
             "variables": [(p, sp.S.Zero), (m, sp.S.One)],
             "expected_limit": sp.S.One,
         },
         {
-            "name": "sin(x)/x² przy x=1",
+            "name": "sin(x)/x² at x=1",
             "expr": sp.sin(x)/x**2,
             "variables": [(x, sp.S.One)],
             "expected_limit": sp.sin(sp.S.One),
         },
     ]
 
-    print(f"  {'Równanie':<42} {'Typ':<14} {'lim':<10} {'OK?'}")
+    print(f"  {'Equation':<42} {'Type':<14} {'lim':<10} {'OK?'}")
     print(f"  {'─'*42} {'─'*14} {'─'*10} {'─'*4}")
     classify_batch(cases_regular, max_order=8, verbose=True)
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 4: Wielozmiennowe (m=0 i p=0 jednocześnie)
+    # SECTION 4: Multivariable (m=0 and p=0 simultaneously)
     # ════════════════════════════════════════════════════════════
-    print("\n▶  WIELOZMIENNOWE — dwie zmienne jednocześnie\n")
+    print("\n▶  MULTIVARIABLE — two variables simultaneously\n")
 
     cases_multi = [
         {
-            "name": "m·p/(m²+p²) przy m=0, p=0",
+            "name": "m·p/(m²+p²) at m=0, p=0",
             "expr": m*p / (m**2 + p**2),
             "variables": [(m, sp.S.Zero), (p, sp.S.Zero)],
-            "expected_limit": None,  # granica zależy od kierunku!
+            "expected_limit": None,  # limit depends on direction!
         },
         {
-            "name": "(sin(m)+sin(p))/(m+p) przy m=0, p=0",
+            "name": "(sin(m)+sin(p))/(m+p) at m=0, p=0",
             "expr": (sp.sin(m) + sp.sin(p)) / (m + p),
             "variables": [(m, sp.S.Zero), (p, sp.S.Zero)],
             "expected_limit": sp.S.One,
         },
     ]
 
-    print(f"  {'Równanie':<42} {'Typ':<14} {'lim':<10} {'OK?'}")
+    print(f"  {'Equation':<42} {'Type':<14} {'lim':<10} {'OK?'}")
     print(f"  {'─'*42} {'─'*14} {'─'*10} {'─'*4}")
     classify_batch(cases_multi, max_order=8, verbose=True)
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 5: Szczegółowy raport dla sinc (demo verbose)
+    # SECTION 5: Detailed report for sinc (verbose demo)
     # ════════════════════════════════════════════════════════════
-    print("\n▶  Szczegółowa analiza sinc(x) przy x=0 (verbose)\n")
+    print("\n▶  Detailed analysis of sinc(x) at x=0 (verbose)\n")
     analyse_singularity(
         sp.sin(x)/x,
         [(x, sp.S.Zero)],
@@ -1439,10 +1439,10 @@ if __name__ == "__main__":
     )
 
     # ════════════════════════════════════════════════════════════
-    # SEKCJA 6: Bieguny logarytmiczne QCD — Kierunek 4
+    # SECTION 6: QCD Logarithmic Poles — Direction 4
     # ════════════════════════════════════════════════════════════
-    print("\n▶  BIEGUNY LOGARYTMICZNE QCD — propagator gluonu\n")
-    print("   (czynnik log zeruje mianownik — nowy typ w wheel_calculus)\n")
+    print("\n▶  QCD LOGARITHMIC POLES — gluon propagator\n")
+    print("   (log factor zeroes denominator — new type in wheel_calculus)\n")
 
     k2      = sp.Symbol("k2",      positive=True)
     alpha_s = sp.Symbol("alpha_s", positive=True)
@@ -1454,20 +1454,20 @@ if __name__ == "__main__":
 
     cases_qcd = [
         {
-            "name": "Gluon prop. — biegun IR (k²=0)",
+            "name": "Gluon prop. — IR pole (k²=0)",
             "expr": gluon_prop,
             "variables": [(k2, k2_ir)],
             "expected_limit": sp.zoo,
         },
         {
-            "name": "Gluon prop. — biegun Landaua",
+            "name": "Gluon prop. — Landau pole",
             "expr": gluon_prop,
             "variables": [(k2, k2_landau)],
             "expected_limit": sp.zoo,
         },
     ]
 
-    print(f"  {'Równanie':<42} {'Typ':<16} {'res':<20} {'OK?'}")
+    print(f"  {'Equation':<42} {'Type':<16} {'res':<20} {'OK?'}")
     print(f"  {'─'*42} {'─'*16} {'─'*20} {'─'*4}")
     classify_batch(cases_qcd, max_order=8, verbose=True)
 
@@ -1475,44 +1475,44 @@ if __name__ == "__main__":
     analyse_singularity(
         gluon_prop,
         [(k2, k2_landau)],
-        name="Propagator gluonu QCD — biegun Landaua (pełna analiza)",
+        name="QCD Gluon propagator — Landau pole (full analysis)",
         max_order=6,
         verbose=True,
     )
 
     # ════════════════════════════════════════════════════════════
-    # PODSUMOWANIE
+    # SUMMARY
     # ════════════════════════════════════════════════════════════
     print("\n" + "═"*62)
-    print("  PODSUMOWANIE — wheel_calculus.py")
+    print("  SUMMARY — wheel_calculus.py")
     print("═"*62)
     print("""
-  Pięciopodział:
-    WheelFinite(v)            → regularny punkt (Wheel OK)
-    WheelNumber(⊥)            → ⊥ bez struktury (fallback)
-    RemovableSingularity      → Wheel=⊥ ale lim=v (osobliwość usuwalna)
-    PoleSingularity           → biegun algebraiczny: rząd + residuum + Laurent
-    LogarithmicSingularity    → biegun log: czynnik log zeruje mianownik
+  Five-fold division:
+    WheelFinite(v)            → regular point (Wheel OK)
+    WheelNumber(⊥)            → ⊥ without structure (fallback)
+    RemovableSingularity      → Wheel=⊥ but lim=v (removable singularity)
+    PoleSingularity           → algebraic pole: order + residue + Laurent
+    LogarithmicSingularity    → log pole: log factor zeroes denominator
 
   Residue analysis:
-    1/(p²-m²) przy p=m  → POLE[1], res=1/(2m)
-    1/x² przy x=0       → POLE[2], res=N/A (Cauchy tylko dla rzędu 1)
-    g_rr przy r=r_s     → POLE[1], res=r_s
-    Gluon @ Landau      → LOG_POLE[1], res=1/αs  ← NOWE
+    1/(p²-m²) at p=m    → POLE[1], res=1/(2m)
+    1/x² at x=0         → POLE[2], res=N/A (Cauchy only for order 1)
+    g_rr at r=r_s       → POLE[1], res=r_s
+    Gluon @ Landau      → LOG_POLE[1], res=1/αs  ← NEW
 
-  Związek z QFT:
-    residuum propagatora = amplituda przejścia on-shell
-    residuum bieguna Landaua = 1/αs (siła sprzężenia QCD)
-    twierdzenie Cauchy'ego: ∮ f(z) dz = 2πi · Σ res(f, zₖ)
+  Connection with QFT:
+    propagator residue = on-shell transition amplitude
+    Landau pole residue = 1/αs (QCD coupling strength)
+    Cauchy's theorem: ∮ f(z) dz = 2πi · Σ res(f, zₖ)
 
-  Architektura:
-    wheel_algebra.py  — aksjomatyczna Wheel Algebra, bez zmian
-    wheel_calculus.py — rozszerzenie analityczne (ten moduł)
+  Architecture:
+    wheel_algebra.py  — axiomatic Wheel Algebra, unchanged
+    wheel_calculus.py — analytical extension (this module)
 
-  Kluczowa różnica (ważna dla preprintu!):
-    Wheel Algebra:   sin(0)/0 = 0/0 = ⊥   (algebra punktowa)
-    wheel_calculus:  sin(x)/x przy x→0  = 1  (rozwinięcie Taylora)
-    Oba są POPRAWNE — opisują różne pytania:
-      ⊥ → "co się dzieje w tym punkcie algebraicznie?"
-      1 → "co jest wartością graniczną analizy matematycznej?"
+  Key difference (important for the preprint!):
+    Wheel Algebra:   sin(0)/0 = 0/0 = ⊥   (point algebra)
+    wheel_calculus:  sin(x)/x at x→0  = 1  (Taylor expansion)
+    Both are CORRECT — they answer different questions:
+      ⊥ → "what happens at this point algebraically?"
+      1 → "what is the limit value of mathematical analysis?"
 """)

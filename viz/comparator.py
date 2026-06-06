@@ -2,12 +2,12 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-viz/comparator.py — porównanie wizualne: klasyczna vs Wheel Algebra
+viz/comparator.py — visual comparison: classical vs Wheel Algebra
 
-Generuje wykresy tekstowe (ASCII) i raporty pokazujące:
-  - jak wyrażenie zachowuje się klasycznie vs w Wheel
-  - gdzie pojawiają się ⊥ (oznaczone pionowo)
-  - porównanie dla wielu wyrażeń jednocześnie
+Generates textual plots (ASCII) and reports showing:
+  - how an expression behaves classically vs in Wheel
+  - where ⊥ appears (marked vertically)
+  - comparison for multiple expressions simultaneously
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ from core.wheel_number import W, BOTTOM
 from core.sympy_extension import wheel_subs
 
 
-# ─── Wykres ASCII ─────────────────────────────────────────────────────────────
+# ─── ASCII Plot ───────────────────────────────────────────────────────────────
 
 class ASCIIPlot:
     """
-    Prosty wykres ASCII dla funkcji jednej zmiennej.
-    Oznacza ⊥ pionową linią '|⊥|'.
+    Simple ASCII plot for a single variable function.
+    Marks ⊥ with a vertical line '|⊥|'.
     """
 
     def __init__(self, width: int = 60, height: int = 12):
@@ -43,15 +43,15 @@ class ASCIIPlot:
         n_points:   int = 40,
     ) -> str:
         """
-        Rysuje wykres ASCII wyrażenia.
+        Draws an ASCII plot of the expression.
 
-        Zwraca string z wykresem.
+        Returns string with the plot.
         """
         extra = extra_subs or {}
         x_min, x_max = float(x_range[0]), float(x_range[1])
         step = (x_max - x_min) / n_points
 
-        # Zbierz wartości
+        # Collect values
         xs, ys_classical, ys_wheel = [], [], []
         bottom_positions = []
 
@@ -72,7 +72,7 @@ class ASCIIPlot:
                 except Exception:
                     ys_wheel.append(None)
 
-            # Klasyczny
+            # Classical
             try:
                 classical = float(sp.sympify(expr).subs(subs).evalf())
                 if abs(classical) > 1e6 or classical != classical:
@@ -82,19 +82,19 @@ class ASCIIPlot:
             except Exception:
                 ys_classical.append(None)
 
-        # Znajdź zakres y
+        # Find y range
         valid = [y for y in ys_wheel if y is not None and abs(y) < 1e6]
         if not valid:
             valid = [y for y in ys_classical if y is not None]
         if not valid:
-            return f"[Brak danych do wykresu dla {expr}]"
+            return f"[No data to plot for {expr}]"
 
         y_min = min(valid) * 1.1 if min(valid) < 0 else min(valid) * 0.9
         y_max = max(valid) * 1.1 if max(valid) > 0 else max(valid) * 0.9
         if y_min == y_max:
             y_min -= 1; y_max += 1
 
-        # Buduj siatkę
+        # Build grid
         grid = [[" "] * (n_points + 1) for _ in range(self.height)]
 
         def y_to_row(y_val):
@@ -103,10 +103,10 @@ class ASCIIPlot:
             row = int((y_max - y_val) / (y_max - y_min) * (self.height - 1))
             return max(0, min(self.height - 1, row))
 
-        # Narysuj wartości wheel (·) i klasyczne (o)
+        # Draw wheel values (·) and classical values (o)
         for i, (yw, yc) in enumerate(zip(ys_wheel, ys_classical)):
             if i in bottom_positions:
-                # Kolumna ⊥ — pionowa linia
+                # ⊥ column — vertical line
                 for row in range(self.height):
                     grid[row][i] = "│"
             else:
@@ -114,14 +114,14 @@ class ASCIIPlot:
                 if row_w is not None:
                     grid[row_w][i] = "·"
 
-        # Oś zerowa
+        # Zero axis
         zero_row = y_to_row(0.0)
         if zero_row is not None:
             for col in range(n_points + 1):
                 if grid[zero_row][col] == " ":
                     grid[zero_row][col] = "─"
 
-        # Złóż string
+        # Assemble string
         lines = []
         if title:
             lines.append(f"  {title}")
@@ -132,17 +132,17 @@ class ASCIIPlot:
             label = y_labels[row_i] if row_i < len(y_labels) else ""
             lines.append(f"  {label:>8} │{''.join(row)}")
 
-        # Oś X
+        # X axis
         x_axis = "─" * (n_points + 1)
         lines.append(f"  {'':>8} └{x_axis}")
         lines.append(f"  {'':>9}{x_min:<15.2f}{'':>10}{(x_min+x_max)/2:<10.2f}{x_max:>8.2f}")
 
-        # Legenda
+        # Legend
         bottom_x = [f"{x_min + bp * step:.2f}" for bp in bottom_positions[:3]]
         if bottom_x:
-            lines.append(f"\n  · = Wheel   │ = ⊥ (osobliwość)   ⊥ przy x ≈ {', '.join(bottom_x)}")
+            lines.append(f"\n  · = Wheel   │ = ⊥ (singularity)   ⊥ at x ≈ {', '.join(bottom_x)}")
         else:
-            lines.append(f"\n  · = Wheel   (brak osobliwości w zakresie)")
+            lines.append(f"\n  · = Wheel   (no singularities in range)")
 
         return "\n".join(lines)
 
@@ -151,8 +151,8 @@ class ASCIIPlot:
 
 class Comparator:
     """
-    Porównuje zachowanie wyrażeń w klasycznej algebrze i Wheel.
-    Generuje raporty tekstowe z wykresami ASCII.
+    Compares expression behavior in classical algebra and Wheel.
+    Generates text reports with ASCII plots.
     """
 
     def __init__(self):
@@ -167,24 +167,24 @@ class Comparator:
         name:       str = "",
         test_points: Optional[list] = None,
     ) -> str:
-        """Generuje pełny raport porównawczy."""
+        """Generates a full comparative report."""
 
         extra  = extra_subs or {}
         lines  = []
         header = name or str(expr)
 
         lines.append("═" * 64)
-        lines.append(f"  PORÓWNANIE: {header}")
+        lines.append(f"  COMPARISON: {header}")
         lines.append("═" * 64)
-        lines.append(f"  Wyrażenie : {expr}")
-        lines.append(f"  Zmienna   : {var}  ∈  [{x_range[0]}, {x_range[1]}]")
+        lines.append(f"  Expression: {expr}")
+        lines.append(f"  Variable  : {var}  ∈  [{x_range[0]}, {x_range[1]}]")
         if extra:
-            lines.append(f"  Parametry : {extra}")
+            lines.append(f"  Parameters: {extra}")
 
-        # Tabela wartości w punktach testowych
+        # Value table at test points
         if test_points:
             lines.append(f"\n  {'':─<60}")
-            lines.append(f"  {'Punkt':<15} {'Klasycznie':<20} {'Wheel':<15} {'Status'}")
+            lines.append(f"  {'Point':<15} {'Classical':<20} {'Wheel':<15} {'Status'}")
             lines.append(f"  {'':─<60}")
 
             for pt in test_points:
@@ -195,22 +195,22 @@ class Comparator:
                     classical = sp.simplify(sp.sympify(expr).subs(subs))
                     cl_str = str(classical)[:18]
                 except Exception:
-                    cl_str = "błąd"
+                    cl_str = "error"
 
                 if w.is_bottom:
                     w_str  = "⊥"
-                    status = "← OSOBLIWOŚĆ"
+                    status = "← SINGULARITY"
                 else:
                     try:
                         w_str = str(w.value)[:14]
                     except Exception:
                         w_str = str(w)
-                    status = "✓ zgodne" if cl_str.replace(" ", "") == w_str.replace(" ", "") else "≈ różne"
+                    status = "✓ matching" if cl_str.replace(" ", "") == w_str.replace(" ", "") else "≈ distinct"
 
                 lines.append(f"  {str(pt):<15} {cl_str:<20} {w_str:<15} {status}")
 
-        # Wykres ASCII
-        lines.append(f"\n  Wykres (·=Wheel, │=⊥):\n")
+        # ASCII Plot
+        lines.append(f"\n  Plot (·=Wheel, │=⊥):\n")
         plot = self._plotter.plot(
             expr, var, x_range, extra_subs=extra, n_points=50
         )
@@ -219,34 +219,34 @@ class Comparator:
         return "\n".join(lines)
 
     def run_showcase(self) -> None:
-        """Pokazuje porównania dla kluczowych równań projektu."""
+        """Shows comparisons for the project's core equations."""
 
         r, r_s, p, m, a = sp.symbols("r r_s p m a", real=True)
 
         print("█" * 64)
-        print("  WHEELPHYSICS — Wizualne porównania Klasyczna vs Wheel")
+        print("  WHEELPHYSICS — Visual Comparisons Classical vs Wheel")
         print("█" * 64)
 
-        # ── g_rr Schwarzschilda
+        # ── Schwarzschild g_rr
         print("\n" + self.compare(
             expr=1 / (1 - r_s / r),
             var=r,
             x_range=(0.1, 4.0),
             extra_subs={r_s: sp.Integer(1)},
-            name="g_rr Schwarzschilda  (r_s=1)",
+            name="Schwarzschild g_rr (r_s=1)",
             test_points=[
                 sp.Rational(1, 2), sp.Integer(1),
                 sp.Rational(3, 2), sp.Integer(2), sp.Integer(3),
             ],
         ))
 
-        # ── Propagator skalarny
+        # ── Scalar propagator
         print("\n" + self.compare(
             expr=1 / (p**2 - m**2),
             var=p,
             x_range=(-3.0, 3.0),
             extra_subs={m: sp.Integer(1)},
-            name="Propagator skalarny 1/(p²-m²)  (m=1)",
+            name="Scalar propagator 1/(p²-m²) (m=1)",
             test_points=[
                 sp.Integer(-2), sp.Integer(-1), sp.Rational(-1, 2),
                 sp.Integer(0),  sp.Rational(1, 2), sp.Integer(1), sp.Integer(2),
@@ -259,7 +259,7 @@ class Comparator:
             var=a,
             x_range=(-2.0, 2.0),
             extra_subs={},
-            name="Człon Friedmanna 1/a²  (k=c=1)",
+            name="Friedmann term 1/a² (k=c=1)",
             test_points=[
                 sp.Integer(-2), sp.Integer(-1), sp.Rational(-1, 2),
                 sp.Integer(0),  sp.Rational(1, 2), sp.Integer(1),

@@ -2,19 +2,19 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-equations_db.py — baza danych równań fizycznych
+equations_db.py — database of physical equations
 
-Katalog znanych równań z metadanymi:
-  - priorytet (1=dzielenie, 2=osobliwość, 3=granica)
-  - zmienne i wartości krytyczne
-  - znane osobliwości i ich fizyczny sens
-  - wynik analizy Wheel (uzupełniany przez system)
+Catalogue of known equations with metadata:
+  - priority (1=division, 2=singularity, 3=limit)
+  - variables and critical values
+  - known singularities and their physical meaning
+  - Wheel analysis result (filled by the system)
 
-Strategia zgodna z instrukcją projektu:
-  Prio 1: równania z dzieleniem
-  Prio 2: osobliwości (wynik → ∞)
-  Prio 3: granice i pochodne (0/0)
-  Pomijamy: bez dzielenia (identyczne w Wheel)
+Strategy according to project instructions:
+  Prio 1: equations with division
+  Prio 2: singularities (result → ∞)
+  Prio 3: limits and derivatives (0/0)
+  Skipped: without division (identical in Wheel)
 """
 
 from __future__ import annotations
@@ -28,14 +28,14 @@ import sympy as sp
 
 
 class Priority(IntEnum):
-    DIVISION    = 1   # zawiera dzielenie
-    SINGULARITY = 2   # wynik → ∞ w pewnych punktach
-    LIMIT       = 3   # forma 0/0 lub granica
+    DIVISION    = 1   # contains division
+    SINGULARITY = 2   # result → ∞ at certain points
+    LIMIT       = 3   # 0/0 form or limit
 
 
 @dataclass
 class PhysicsEquation:
-    """Opis pojedynczego równania w bazie."""
+    """Description of a single equation in the database."""
     name:             str
     domain:           str                    # "GR", "QFT", "thermo", ...
     expression:       sp.Basic
@@ -44,7 +44,7 @@ class PhysicsEquation:
     priority:         Priority
     known_singular:   list[dict]             # [{var, value, description}]
     physical_meaning: str
-    wheel_result:     Optional[str] = None   # wypełniane po analizie
+    wheel_result:     Optional[str] = None   # filled after analysis
     notes:            str = ""
 
     def one_liner(self) -> str:
@@ -52,16 +52,16 @@ class PhysicsEquation:
         sing_count = len(self.known_singular)
         return (
             f"[{prio_str}] [{self.domain:<5}] {self.name:<40} "
-            f"| osobliwości: {sing_count}"
+            f"| singularities: {sing_count}"
         )
 
 
-# ─── Baza równań ──────────────────────────────────────────────────────────────
+# ─── Equations database ───────────────────────────────────────────────────────
 
 def build_database() -> list[PhysicsEquation]:
-    """Buduje i zwraca pełną bazę równań."""
+    """Builds and returns the full database of equations."""
 
-    # Symbole
+    # Symbols
     r, r_s         = sp.symbols("r r_s",             positive=True)
     theta          = sp.Symbol("theta",               positive=True)
     t_s            = sp.Symbol("t",                   positive=True)
@@ -88,194 +88,194 @@ def build_database() -> list[PhysicsEquation]:
 
     db = []
 
-    # ── PRIORYTET 1: Ogólna teoria względności ────────────────────────────────
+    # ── PRIORITY 1: General Relativity ────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="g_rr Schwarzschilda",
+        name="Schwarzschild g_rr",
         domain="GR",
         expression=1 / (1 - r_s / r),
         variables=[r],
         parameters=[r_s],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": r, "value": r_s,        "description": "Horyzont zdarzeń (artefakt układu)"},
-            {"var": r, "value": sp.S.Zero,  "description": "Osobliwość fizyczna"},
+            {"var": r, "value": r_s,        "description": "Event horizon (coordinate artifact)"},
+            {"var": r, "value": sp.S.Zero,  "description": "Physical singularity"},
         ],
-        physical_meaning="Składowa radialna tensora metrycznego Schwarzschilda",
-        notes="K(r_s) skończone — horyzont NIE jest osobliwością fizyczną",
+        physical_meaning="Radial component of the Schwarzschild metric tensor",
+        notes="K(r_s) is finite — the horizon is NOT a physical singularity",
     ))
 
     db.append(PhysicsEquation(
-        name="g_tt Schwarzschilda",
+        name="Schwarzschild g_tt",
         domain="GR",
         expression=-(1 - r_s / r) * c**2,
         variables=[r],
         parameters=[r_s, c],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": r, "value": sp.S.Zero, "description": "Osobliwość fizyczna r=0"},
+            {"var": r, "value": sp.S.Zero, "description": "Physical singularity r=0"},
         ],
-        physical_meaning="Składowa czasowa tensora metrycznego Schwarzschilda",
+        physical_meaning="Time component of the Schwarzschild metric tensor",
     ))
 
     db.append(PhysicsEquation(
-        name="Niezmiennik Kretschmanna",
+        name="Kretschmann invariant",
         domain="GR",
         expression=12 * r_s**2 / r**6,
         variables=[r],
         parameters=[r_s],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": r, "value": sp.S.Zero, "description": "Prawdziwa osobliwość — K→∞"},
+            {"var": r, "value": sp.S.Zero, "description": "True singularity — K→∞"},
         ],
-        physical_meaning="K = R_abcd R^abcd — niezmiennik skalarny krzywizny. K(r_s) skończony.",
-        notes="Kluczowy test: odróżnia artefakt układu od osobliwości fizycznej",
+        physical_meaning="K = R_abcd R^abcd — scalar curvature invariant. K(r_s) is finite.",
+        notes="Key test: distinguishes coordinate artifact from physical singularity",
     ))
 
     db.append(PhysicsEquation(
-        name="Symbol Christoffela Γ^t_tr",
+        name="Christoffel symbol Γ^t_tr",
         domain="GR",
         expression=r_s / (2 * r * (r - r_s)),
         variables=[r],
         parameters=[r_s],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": r, "value": r_s,       "description": "Horyzont — osobliwość układu"},
-            {"var": r, "value": sp.S.Zero, "description": "Osobliwość fizyczna"},
+            {"var": r, "value": r_s,       "description": "Horizon — coordinate singularity"},
+            {"var": r, "value": sp.S.Zero, "description": "Physical singularity"},
         ],
-        physical_meaning="Symbol Christoffela — związek z przyspieszeniem geodezyjnym",
+        physical_meaning="Christoffel symbol — connection to geodesic acceleration",
     ))
 
-    # ── PRIORYTET 1: Kosmologia ───────────────────────────────────────────────
+    # ── PRIORITY 1: Cosmology ─────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Friedmann — człon krzywiznowy",
+        name="Friedmann — curvature term",
         domain="COSMO",
         expression=k_curv * c**2 / a**2,
         variables=[a],
         parameters=[k_curv, c],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": a, "value": sp.S.Zero, "description": "Wielki Wybuch / Wielki Ścisk"},
+            {"var": a, "value": sp.S.Zero, "description": "Big Bang / Big Crunch"},
         ],
-        physical_meaning="Człon krzywiznowy w równaniu Friedmanna H² = 8πGρ/3 - kc²/a² + Λc²/3",
-        notes="Symetria a→-a sugeruje istnienie 'przed-wszechświata' w Wheel",
+        physical_meaning="Curvature term in the Friedmann equation H² = 8πGρ/3 - kc²/a² + Λc²/3",
+        notes="Symmetry a→-a suggests the existence of a 'pre-universe' in Wheel",
     ))
 
     db.append(PhysicsEquation(
-        name="Gęstość materii ρ~1/a³",
+        name="Matter density ρ~1/a³",
         domain="COSMO",
         expression=rho / a**3,
         variables=[a],
         parameters=[rho],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": a, "value": sp.S.Zero, "description": "Wielki Wybuch — gęstość → ∞"},
+            {"var": a, "value": sp.S.Zero, "description": "Big Bang — density → ∞"},
         ],
-        physical_meaning="Ewolucja gęstości materii z czynnikiem skali",
+        physical_meaning="Evolution of matter density with scale factor",
     ))
 
     db.append(PhysicsEquation(
-        name="Gęstość promieniowania ρ~1/a⁴",
+        name="Radiation density ρ~1/a⁴",
         domain="COSMO",
         expression=rho / a**4,
         variables=[a],
         parameters=[rho],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": a, "value": sp.S.Zero, "description": "Wielki Wybuch — promieniowanie → ∞"},
+            {"var": a, "value": sp.S.Zero, "description": "Big Bang — radiation → ∞"},
         ],
-        physical_meaning="Ewolucja gęstości promieniowania (+ człon ciśnienia relatywistycznego)",
+        physical_meaning="Evolution of radiation density (+ relativistic pressure term)",
     ))
 
-    # ── PRIORYTET 1: QFT ──────────────────────────────────────────────────────
+    # ── PRIORITY 1: QFT ───────────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Propagator skalarny Feynmana",
+        name="Feynman scalar propagator",
         domain="QFT",
         expression=sp.Integer(1) / (p**2 - m**2),
         variables=[p],
         parameters=[m],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": p, "value":  m, "description": "On-shell (p=+m) — cząstka rzeczywista"},
-            {"var": p, "value": -m, "description": "On-shell (p=-m) — antycząstka"},
+            {"var": p, "value":  m, "description": "On-shell (p=+m) — real particle"},
+            {"var": p, "value": -m, "description": "On-shell (p=-m) — antiparticle"},
         ],
-        physical_meaning="Propagator Kleina-Gordona. Biegun = stan asymptotyczny (obserwowalny).",
-        notes="Hipoteza: ⊥ on-shell = algebraiczna definicja obserwowalności",
+        physical_meaning="Klein-Gordon propagator. Pole = asymptotic (observable) state.",
+        notes="Hypothesis: ⊥ on-shell = algebraic definition of observability",
     ))
 
     db.append(PhysicsEquation(
-        name="Propagator fotonowy",
+        name="Photon propagator",
         domain="QFT",
         expression=sp.Integer(1) / k**2,
         variables=[k],
         parameters=[],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": k, "value": sp.S.Zero, "description": "Foton bezmasowy on-shell (k=0)"},
+            {"var": k, "value": sp.S.Zero, "description": "Massless photon on-shell (k=0)"},
         ],
-        physical_meaning="Propagator fotonu w gauge Lorenza. IR osobliwość przy k=0.",
+        physical_meaning="Photon propagator in Lorenz gauge. IR singularity at k=0.",
     ))
 
     db.append(PhysicsEquation(
-        name="Propagator fermionowy (uproszczony)",
+        name="Fermion propagator (simplified)",
         domain="QFT",
         expression=(p + m_e) / (p**2 - m_e**2),
         variables=[p],
         parameters=[m_e],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": p, "value":  m_e, "description": "On-shell elektron"},
-            {"var": p, "value": -m_e, "description": "On-shell pozyton"},
+            {"var": p, "value":  m_e, "description": "On-shell electron"},
+            {"var": p, "value": -m_e, "description": "On-shell positron"},
         ],
-        physical_meaning="Propagator Diraca (skalaryzowany). Licznik: p̸+m po śladzie.",
+        physical_meaning="Dirac propagator (scalarized). Numerator: p̸+m after trace.",
     ))
 
     db.append(PhysicsEquation(
-        name="Propagator bezmasowego fermiona",
+        name="Massless fermion propagator",
         domain="QFT",
         expression=sp.Integer(1) / p,
         variables=[p],
         parameters=[],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": p, "value": sp.S.Zero, "description": "IR — bezmasowy fermion nie może mieć p=0"},
+            {"var": p, "value": sp.S.Zero, "description": "IR — massless fermion cannot have p=0"},
         ],
-        physical_meaning="Propagator Diraca dla m=0 (neutrina, kwarki chiralne).",
-        notes="Wheel algebraicznie zakazuje p=0 dla bezmasowych — fizycznie poprawne",
+        physical_meaning="Dirac propagator for m=0 (neutrinos, chiral quarks).",
+        notes="Wheel algebraically forbids p=0 for massless particles — physically correct",
     ))
 
-    # ── PRIORYTET 2: Termodynamika / statystyczna ─────────────────────────────
+    # ── PRIORITY 2: Thermodynamics / statistical ──────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Rozkład Boltzmanna 1/T",
+        name="Boltzmann distribution 1/T",
         domain="THERMO",
         expression=sp.exp(-epsilon / (kB * T)) / T,
         variables=[T],
         parameters=[epsilon, kB],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": T, "value": sp.S.Zero, "description": "Zero bezwzględne — osobliwość termodynamiczna"},
+            {"var": T, "value": sp.S.Zero, "description": "Absolute zero — thermodynamic singularity"},
         ],
-        physical_meaning="Prawdopodobieństwo obsadzenia stanu energetycznego ε przy temp. T",
+        physical_meaning="Probability of occupying energy state ε at temp. T",
     ))
 
     db.append(PhysicsEquation(
-        name="Rozkład Plancka",
+        name="Planck distribution",
         domain="THERMO",
         expression=hbar * omega / (sp.exp(hbar * omega / (kB * T)) - 1),
         variables=[T],
         parameters=[hbar, omega, kB],
         priority=Priority.LIMIT,
         known_singular=[
-            {"var": T, "value": sp.S.Zero, "description": "T=0 — mianownik exp(∞)-1 → ∞"},
+            {"var": T, "value": sp.S.Zero, "description": "T=0 — denominator exp(∞)-1 → ∞"},
         ],
-        physical_meaning="Energia fotonów w promieniowaniu ciała doskonale czarnego",
-        notes="Forma 0/0 gdy T→∞ (klasyczna granica Rayleigha-Jeansa)",
+        physical_meaning="Energy of photons in black body radiation",
+        notes="0/0 form when T→∞ (classical Rayleigh-Jeans limit)",
     ))
 
-    # ── PRIORYTET 3: Granice i pochodne ──────────────────────────────────────
+    # ── PRIORITY 3: Limits and derivatives ────────────────────────────────────
 
     db.append(PhysicsEquation(
         name="sinc(x) = sin(x)/x",
@@ -285,16 +285,16 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[],
         priority=Priority.LIMIT,
         known_singular=[
-            {"var": x, "value": sp.S.Zero, "description": "Forma 0/0 — granica = 1"},
+            {"var": x, "value": sp.S.Zero, "description": "0/0 form — limit = 1"},
         ],
-        physical_meaning="Funkcja sinc — pojawia się w dyfrakcji, transformacie Fouriera",
-        notes="Klasycznie: lim(x→0) sin(x)/x = 1. Wheel: ⊥. To istotna różnica!",
+        physical_meaning="sinc function — appears in diffraction, Fourier transform",
+        notes="Classically: lim(x→0) sin(x)/x = 1. Wheel: ⊥. This is a significant difference!",
     ))
 
-    # ── NOWE: Tensor Riemanna — Schwarzschild ─────────────────────────────────
+    # ── NEW: Riemann Tensor — Schwarzschild ───────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Tensor Riemanna R^r_trt",
+        name="Riemann tensor R^r_trt",
         domain="GR",
         expression=-r_s / r**3,
         variables=[r],
@@ -302,18 +302,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Osobliwość fizyczna — krzywizna → ∞"},
+             "description": "Physical singularity — curvature → ∞"},
         ],
         physical_meaning=(
-            "R^r_trt = -r_s/r³ — składowa tensora Riemanna dla Schwarzschilda. "
-            "Przy r=r_s: -1/r_s² (skończony — horyzont regularny). "
-            "Przy r=0: ⊥ (osobliwość fizyczna)."
+            "R^r_trt = -r_s/r³ — Riemann tensor component for Schwarzschild. "
+            "At r=r_s: -1/r_s² (finite — regular horizon). "
+            "At r=0: ⊥ (physical singularity)."
         ),
-        notes="R(r_s) skończony — tensor Riemanna potwierdza horyzont jako artefakt",
+        notes="R(r_s) finite — Riemann tensor confirms the horizon is an artifact",
     ))
 
     db.append(PhysicsEquation(
-        name="Tensor Riemanna R^θ_rθr",
+        name="Riemann tensor R^θ_rθr",
         domain="GR",
         expression=-r_s / (2 * r**3),
         variables=[r],
@@ -321,18 +321,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Osobliwość fizyczna — krzywizna kątowa → ∞"},
+             "description": "Physical singularity — angular curvature → ∞"},
         ],
         physical_meaning=(
-            "R^θ_rθr = -r_s/(2r³) — składowa kątowo-radialna. "
-            "Mierzy krzywiznę w kierunkach kątowych. "
-            "Przy r=r_s: -1/(2r_s²) skończona. Przy r=0: ⊥."
+            "R^θ_rθr = -r_s/(2r³) — angular-radial component. "
+            "Measures curvature in angular directions. "
+            "At r=r_s: -1/(2r_s²) is finite. At r=0: ⊥."
         ),
-        notes="Ta sama struktura co R^r_trt — osobliwość tylko przy r=0",
+        notes="Same structure as R^r_trt — singularity only at r=0",
     ))
 
     db.append(PhysicsEquation(
-        name="Tensor Riemanna R^φ_tφt",
+        name="Riemann tensor R^φ_tφt",
         domain="GR",
         expression=(r_s / r**3) * (1 - r_s / r),
         variables=[r],
@@ -340,23 +340,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Osobliwość fizyczna"},
+             "description": "Physical singularity"},
             {"var": r, "value": r_s,
-             "description": "Horyzont — czynnik f(r)=0 kasuje r_s/r³, wynik 0 nie ⊥"},
+             "description": "Horizon — factor f(r)=0 cancels r_s/r³, result 0 not ⊥"},
         ],
         physical_meaning=(
             "R^φ_tφt = (r_s/r³)·(1-r_s/r). "
-            "Wyjątkowy: przy r=r_s mamy 0·∞ — f(r)→0 ale r_s/r³→∞. "
-            "Wheel przez rekurencję na /r w f(r) daje ⊥ przy r=0. "
-            "Przy r=r_s: (1-r_s/r)→0 kasuje dywergencję, wynik = 0."
+            "Exceptional: at r=r_s we have 0·∞ — f(r)→0 but r_s/r³→∞. "
+            "Wheel through recursion on /r in f(r) gives ⊥ at r=0. "
+            "At r=r_s: (1-r_s/r)→0 cancels divergence, result = 0."
         ),
-        notes="Przypadek 0·∞ przy r=r_s — fizycznie V_eff=0 na horyzoncie",
+        notes="0·∞ case at r=r_s — physically V_eff=0 at the horizon",
     ))
 
-    # ── NOWE: Równanie Diraca ─────────────────────────────────────────────────
+    # ── NEW: Dirac Equation ───────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Dirac m=0 — propagator Weylla",
+        name="Dirac m=0 — Weyl propagator",
         domain="QFT",
         expression=sp.Integer(1) / p,
         variables=[p],
@@ -364,18 +364,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": p, "value": sp.S.Zero,
-             "description": "Bezmasowy fermion on-shell — p=0 fizycznie nieosiągalne"},
+             "description": "Massless fermion on-shell — p=0 physically unattainable"},
         ],
         physical_meaning=(
             "lim(m→0) S_F(p,m) = 1/p. "
-            "Równanie Diraca dla m=0 to dwa niezależne równania Weylla. "
-            "Biegun przy p=0 — stan spoczynku bezmasowej cząstki niedostępny (porusza się z c)."
+            "Dirac equation for m=0 is two independent Weyl equations. "
+            "Pole at p=0 — state of rest for massless particle is inaccessible (moves at c)."
         ),
-        notes="Wheel algebraicznie wyprowadza zakaz p=0 dla bezmasowych",
+        notes="Wheel algebraically derives the prohibition of p=0 for massless particles",
     ))
 
     db.append(PhysicsEquation(
-        name="Dirac — energia relatywistyczna 1/√(p²+m²)",
+        name="Dirac — relativistic energy 1/√(p²+m²)",
         domain="QFT",
         expression=sp.Integer(1) / sp.sqrt(p**2 + m**2),
         variables=[p, m],
@@ -383,22 +383,22 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": m, "value": sp.S.Zero,
-             "description": "Granica bezmasowa przy p=0 — 1/|p|, osobliwość IR"},
+             "description": "Massless limit at p=0 — 1/|p|, IR singularity"},
         ],
         physical_meaning=(
-            "1/E = 1/√(p²+m²) — normalizacja stanu relativistycznego. "
-            "Przy m=0 i p=0: 1/0 → ⊥. "
-            "Przy m>0 i p=0: 1/m (skończone — masa regularyzuje IR)."
+            "1/E = 1/√(p²+m²) — relativistic state normalization. "
+            "At m=0 and p=0: 1/0 → ⊥. "
+            "At m>0 and p=0: 1/m (finite — mass regularizes IR)."
         ),
-        notes="Wheel odróżnia: m>0 brak osobliwości w p=0, m=0 daje ⊥",
+        notes="Wheel distinguishes: m>0 no singularity at p=0, m=0 gives ⊥",
     ))
 
-    # ── NOWE: Klein-Gordon w zakrzywionej czasoprzestrzeni ────────────────────
+    # ── NEW: Klein-Gordon in curved spacetime ─────────────────────────────────
 
     l_sym = sp.Symbol("l", nonneg=True, integer=True)
 
     db.append(PhysicsEquation(
-        name="Klein-Gordon w Schwarzschildzie V_eff",
+        name="Klein-Gordon in Schwarzschild V_eff",
         domain="QFT",
         expression=(1 - r_s/r) * (m**2 + l_sym*(l_sym+1)/r**2 + r_s/r**3),
         variables=[r],
@@ -406,22 +406,22 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Osobliwość fizyczna — V_eff → ∞"},
+             "description": "Physical singularity — V_eff → ∞"},
             {"var": r, "value": r_s,
-             "description": "Horyzont — f(r)=0 zeruje V_eff (bariera znika)"},
+             "description": "Horizon — f(r)=0 zeroes V_eff (barrier disappears)"},
         ],
         physical_meaning=(
             "V_eff = f(r)·[m² + l(l+1)/r² + r_s/r³], f=1-r_s/r. "
-            "Efektywny potencjał KG w Schwarzschildzie (wsp. żółwia). "
-            "Pierwsze połączenie OTW+QFT — obie osobliwości nakładają się przy r=0. "
-            "Przy r=r_s: V_eff=0 (horyzont = bariera znika — fizycznie poprawne). "
-            "Przy r=0: V_eff=⊥."
+            "Effective potential of KG in Schwarzschild (tortoise coords). "
+            "First connection of GR+QFT — both singularities overlap at r=0. "
+            "At r=r_s: V_eff=0 (horizon = barrier disappears — physically correct). "
+            "At r=0: V_eff=⊥."
         ),
-        notes="r=r_s daje V_eff=0, nie ⊥ — horyzont jest tu zanikiem bariery, nie osobliwością",
+        notes="r=r_s gives V_eff=0, not ⊥ — the horizon here is a vanishing barrier, not a singularity",
     ))
 
     db.append(PhysicsEquation(
-        name="Klein-Gordon euklidesowy 1/(p²+m²)",
+        name="Euclidean Klein-Gordon 1/(p²+m²)",
         domain="QFT",
         expression=sp.Integer(1) / (p**2 + m**2),
         variables=[p],
@@ -429,26 +429,26 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": p, "value": sp.S.Zero,
-             "description": "Przy m=0: IR biegun przy p=0"},
+             "description": "At m=0: IR pole at p=0"},
         ],
         physical_meaning=(
-            "Euklidesowy propagator KG: 1/(p²+m²). "
-            "Dla m>0: brak bieguna na osi rzeczywistej — stąd użyteczność obrotu Wicka. "
-            "Dla m=0 przy p=0: ⊥. "
-            "Porównanie z Minkowskim 1/(p²-m²): obrót Wicka usuwa bieguny rzeczywiste."
+            "Euclidean KG propagator: 1/(p²+m²). "
+            "For m>0: no pole on the real axis — hence the utility of Wick rotation. "
+            "For m=0 at p=0: ⊥. "
+            "Comparison with Minkowski 1/(p²-m²): Wick rotation removes real poles."
         ),
-        notes="m=0,p=0 → ⊥. Dla m>0 i p=0: 1/m² skończone",
+        notes="m=0,p=0 → ⊥. For m>0 and p=0: 1/m² finite",
     ))
 
 
-    # ── GR: Metryka Kerr ─────────────────────────────────────────────────────
+    # ── GR: Kerr Metric ───────────────────────────────────────────────────────
 
-    a_kerr = sp.Symbol("a_kerr", positive=True)   # moment obrotowy / masę
-    Delta  = r**2 - r_s*r + a_kerr**2             # funkcja Kerr
-    Sigma  = r**2 + a_kerr**2 * sp.cos(theta)**2  # czynnik kształtu
+    a_kerr = sp.Symbol("a_kerr", positive=True)   # angular momentum / mass
+    Delta  = r**2 - r_s*r + a_kerr**2             # Kerr function
+    Sigma  = r**2 + a_kerr**2 * sp.cos(theta)**2  # shape factor
 
     db.append(PhysicsEquation(
-        name="Kerr g_rr — Δ(r) w mianowniku",
+        name="Kerr g_rr — Δ(r) in denominator",
         domain="GR",
         expression=Sigma / Delta,
         variables=[r],
@@ -456,22 +456,22 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": r_s/2 + sp.sqrt(r_s**2/4 - a_kerr**2),
-             "description": "Zewnętrzny horyzont r+ — Δ(r+)=0"},
+             "description": "Outer horizon r+ — Δ(r+)=0"},
             {"var": r, "value": r_s/2 - sp.sqrt(r_s**2/4 - a_kerr**2),
-             "description": "Wewnętrzny horyzont r- — Δ(r-)=0"},
+             "description": "Inner horizon r- — Δ(r-)=0"},
         ],
         physical_meaning=(
-            "Składowa g_rr metryki Kerr (obracająca się czarna dziura). "
-            "Δ = r²-r_s·r+a² — zeruje się na dwóch horyzontach r±. "
-            "Osobliwość pierścieniowa Kerr: r=0, θ=π/2 (Σ→0 i Δ→a²≠0). "
-            "Bardziej realistyczny model niż Schwarzschild — każda astrofizyczna BH rotuje."
+            "g_rr component of Kerr metric (rotating black hole). "
+            "Δ = r²-r_s·r+a² — zeroes out at two horizons r±. "
+            "Kerr ring singularity: r=0, θ=π/2 (Σ→0 and Δ→a²≠0). "
+            "More realistic model than Schwarzschild — every astrophysical BH rotates."
         ),
-        notes="Dwa horyzonty zamiast jednego — bogatsza struktura osobliwości niż Schwarzschild",
+        notes="Two horizons instead of one — richer singularity structure than Schwarzschild",
     ))
 
-    # ── GR: Metryka Reissnera-Nordströma ─────────────────────────────────────
+    # ── GR: Reissner-Nordström Metric ─────────────────────────────────────────
 
-    r_Q = sp.Symbol("r_Q", positive=True)   # promień ładunku: r_Q²=GQ²/(4πε₀c⁴)
+    r_Q = sp.Symbol("r_Q", positive=True)   # charge radius: r_Q²=GQ²/(4πε₀c⁴)
     f_RN = 1 - r_s/r + r_Q**2/r**2
 
     db.append(PhysicsEquation(
@@ -483,25 +483,25 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": r_s/2 + sp.sqrt(r_s**2/4 - r_Q**2),
-             "description": "Zewnętrzny horyzont r+ — naładowana BH"},
+             "description": "Outer horizon r+ — charged BH"},
             {"var": r, "value": r_s/2 - sp.sqrt(r_s**2/4 - r_Q**2),
-             "description": "Wewnętrzny horyzont r- (Cauchy'ego)"},
+             "description": "Inner horizon r- (Cauchy)"},
             {"var": r, "value": sp.S.Zero,
-             "description": "Osobliwość fizyczna r=0"},
+             "description": "Physical singularity r=0"},
         ],
         physical_meaning=(
-            "g_rr metryki Reissnera-Nordströma (czarna dziura z ładunkiem Q). "
-            "f_RN = 1 - r_s/r + r_Q²/r². Trzy osobliwości: r+, r-, r=0. "
-            "Gdy r_Q = r_s/2: horyzont ekstremalny (r+=r-). "
-            "Gdy r_Q > r_s/2: nagie osobliwości (bez horyzontu)."
+            "g_rr of Reissner-Nordström metric (black hole with charge Q). "
+            "f_RN = 1 - r_s/r + r_Q²/r². Three singularities: r+, r-, r=0. "
+            "When r_Q = r_s/2: extremal horizon (r+=r-). "
+            "When r_Q > r_s/2: naked singularities (no horizon)."
         ),
-        notes="Trzy osobliwości — najbogatsza struktura wśród metryk sferycznych",
+        notes="Three singularities — richest structure among spherical metrics",
     ))
 
-    # ── GR: Promień Hubble'a ──────────────────────────────────────────────────
+    # ── GR: Hubble Radius ─────────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Promień Hubble'a r_H = c/H",
+        name="Hubble radius r_H = c/H",
         domain="COSMO",
         expression=c / H,
         variables=[H],
@@ -509,21 +509,21 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": H, "value": sp.S.Zero,
-             "description": "H=0 — statyczny wszechświat, brak horyzontu kosmologicznego"},
+             "description": "H=0 — static universe, no cosmological horizon"},
         ],
         physical_meaning=(
-            "r_H = c/H — rozmiar horyzontu Hubble'a. "
-            "H=0: wszechświat statyczny (model Einsteina), horyzont → ∞. "
-            "W Wheel: c/0 = ⊥. "
-            "Powiązanie z Friedmannem: H² → 0 gdy a → stałe."
+            "r_H = c/H — size of the Hubble horizon. "
+            "H=0: static universe (Einstein model), horizon → ∞. "
+            "In Wheel: c/0 = ⊥. "
+            "Connection to Friedmann: H² → 0 when a → constant."
         ),
-        notes="Łączy się z równaniami Friedmanna — gdy H²=0, r_H=⊥",
+        notes="Connects to Friedmann equations — when H²=0, r_H=⊥",
     ))
 
-    # ── Temperatura Hawkinga ──────────────────────────────────────────────────
+    # ── Hawking Temperature ───────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Temperatura Hawkinga T_H",
+        name="Hawking temperature T_H",
         domain="GR",
         expression=hbar * c**3 / (8 * sp.pi * G * M * kB),
         variables=[M],
@@ -531,21 +531,21 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": M, "value": sp.S.Zero,
-             "description": "M=0 — brak czarnej dziury, T_H → ∞"},
+             "description": "M=0 — no black hole, T_H → ∞"},
         ],
         physical_meaning=(
-            "T_H = ħc³/(8πGMk_B) — temperatura promieniowania Hawkinga. "
-            "Im mniejsza masa BH, tym wyższa temperatura (paradoks). "
-            "M→0: T_H→∞ — końcowe stadium ewaporacji BH. "
-            "Wheel: T_H(M=0) = ⊥. Powiązanie z Kretschmannem: K~1/r⁶, M~r_s."
+            "T_H = ħc³/(8πGMk_B) — temperature of Hawking radiation. "
+            "The smaller the BH mass, the higher the temperature (paradox). "
+            "M→0: T_H→∞ — final stage of BH evaporation. "
+            "Wheel: T_H(M=0) = ⊥. Connection to Kretschmann: K~1/r⁶, M~r_s."
         ),
-        notes="Łączy OTW z QFT — promieniowanie termiczne z horyzontu zdarzeń",
+        notes="Connects GR with QFT — thermal radiation from event horizon",
     ))
 
-    # ── Mechanika klasyczna ───────────────────────────────────────────────────
+    # ── Classical Mechanics ───────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Potencjał Coulomba ke²/r",
+        name="Coulomb potential ke²/r",
         domain="CLASS",
         expression=k_e * e_charge**2 / r,
         variables=[r],
@@ -553,19 +553,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Punkt ładunku — potencjał → ∞"},
+             "description": "Point charge — potential → ∞"},
         ],
         physical_meaning=(
-            "V_C = ke²/r — potencjał elektrostatyczny punktowego ładunku. "
-            "Archetyp wszystkich osobliwości 1/r w fizyce. "
-            "W QED zastępowany propagatorem fotonowym 1/q² (już w bazie). "
-            "Wheel: V_C(r=0) = ⊥ — ładunek punktowy jest osobliwością."
+            "V_C = ke²/r — electrostatic potential of a point charge. "
+            "Archetype of all 1/r singularities in physics. "
+            "In QED replaced by photon propagator 1/q² (already in db). "
+            "Wheel: V_C(r=0) = ⊥ — point charge is a singularity."
         ),
-        notes="Archetyp osobliwości 1/r — fundament elektrodynamiki klasycznej",
+        notes="Archetype of 1/r singularities — foundation of classical electrodynamics",
     ))
 
     db.append(PhysicsEquation(
-        name="Potencjał grawitacyjny -GM/r",
+        name="Gravitational potential -GM/r",
         domain="CLASS",
         expression=-G * M / r,
         variables=[r],
@@ -573,19 +573,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Punkt masy — potencjał → -∞"},
+             "description": "Point mass — potential → -∞"},
         ],
         physical_meaning=(
-            "V_g = -GM/r — Newtonowski potencjał grawitacyjny. "
-            "Limit nierelatywistyczny metryki Schwarzschilda (g_tt ≈ -1 + r_s/r). "
+            "V_g = -GM/r — Newtonian gravitational potential. "
+            "Non-relativistic limit of Schwarzschild metric (g_tt ≈ -1 + r_s/r). "
             "Wheel: V_g(r=0) = ⊥. "
-            "Ta sama osobliwość co w OTW — Wheel spójny w obu limitach."
+            "Same singularity as in GR — Wheel is consistent in both limits."
         ),
-        notes="Spójność: ta sama ⊥ co w Schwarzschildzie dla r=0",
+        notes="Consistency: same ⊥ as in Schwarzschild for r=0",
     ))
 
     db.append(PhysicsEquation(
-        name="Siła Keplera -GM/r²",
+        name="Kepler force -GM/r²",
         domain="CLASS",
         expression=-G * M / r**2,
         variables=[r],
@@ -593,19 +593,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Kolizja — siła → ∞ (osobliwość kolizyjne)"},
+             "description": "Collision — force → ∞ (collisional singularity)"},
         ],
         physical_meaning=(
-            "F = -GM/r² — siła grawitacji Newtona / siła Keplera. "
-            "Osobliwość kolizyjne przy r=0 — fundament problemu N-ciał. "
+            "F = -GM/r² — Newton's gravity force / Kepler force. "
+            "Collisional singularity at r=0 — foundation of the N-body problem. "
             "Wheel: F(r=0) = ⊥. "
-            "Powiązanie z ChaosEngine — w PTC osobliwości kolizyjne to te same ⊥."
+            "Connection to ChaosEngine — in CRT collisional singularities are the same ⊥."
         ),
-        notes="Osobliwości kolizyjne w PTC — most między WheelPhysics a ChaosEngine",
+        notes="Collisional singularities in CRT — bridge between WheelPhysics and ChaosEngine",
     ))
 
     db.append(PhysicsEquation(
-        name="Rezonans oscylatora 1/(ω²-ω₀²)",
+        name="Oscillator resonance 1/(ω²-ω₀²)",
         domain="CLASS",
         expression=sp.Integer(1) / (omega**2 - omega0**2),
         variables=[omega],
@@ -613,23 +613,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": omega, "value": omega0,
-             "description": "Rezonans — amplituda → ∞ (bez tłumienia)"},
+             "description": "Resonance — amplitude → ∞ (without damping)"},
         ],
         physical_meaning=(
-            "Amplituda wymuszonego oscylatora harmonicznego: A ~ 1/(ω²-ω₀²). "
-            "Rezonans przy ω=ω₀: A→∞ (bez tłumienia). "
-            "Ta sama struktura co propagator: 1/(p²-m²) ↔ 1/(ω²-ω₀²). "
-            "Wheel: A(ω=ω₀) = ⊥. Rezonans = stan 'on-shell' oscylatora."
+            "Amplitude of a forced harmonic oscillator: A ~ 1/(ω²-ω₀²). "
+            "Resonance at ω=ω₀: A→∞ (without damping). "
+            "Same structure as propagator: 1/(p²-m²) ↔ 1/(ω²-ω₀²). "
+            "Wheel: A(ω=ω₀) = ⊥. Resonance = 'on-shell' state of the oscillator."
         ),
-        notes="Izomorfizm z propagatorem QFT: rezonans klasyczny = on-shell kwantowy",
+        notes="Isomorphism with QFT propagator: classical resonance = quantum on-shell",
     ))
 
-    # ── Termodynamika ─────────────────────────────────────────────────────────
+    # ── Thermodynamics ────────────────────────────────────────────────────────
 
     a_vdw, b_vdw, R_gas = sp.symbols("a_vdw b_vdw R_gas", positive=True)
 
     db.append(PhysicsEquation(
-        name="van der Waals — ciśnienie P(V,T)",
+        name="van der Waals — pressure P(V,T)",
         domain="THERMO",
         expression=R_gas * T / (V - b_vdw) - a_vdw / V**2,
         variables=[V],
@@ -637,23 +637,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": V, "value": b_vdw,
-             "description": "V=b — objętość własna cząsteczek (twarde jądra)"},
+             "description": "V=b — proper volume of molecules (hard cores)"},
             {"var": V, "value": sp.S.Zero,
-             "description": "V=0 — osobliwość niefizyczna (gaz nie może się zwinąć)"},
+             "description": "V=0 — nonphysical singularity (gas cannot collapse)"},
         ],
         physical_meaning=(
-            "P = RT/(V-b) - a/V² — równanie stanu van der Waalsa. "
-            "V=b: cząsteczki dotykają się, ciśnienie → ∞ (twarde rdzenie). "
-            "V=0: czysto matematyczna osobliwość, niefizyczna. "
-            "Wheel poprawnie daje ⊥ w obu punktach."
+            "P = RT/(V-b) - a/V² — van der Waals equation of state. "
+            "V=b: molecules touch, pressure → ∞ (hard cores). "
+            "V=0: purely mathematical singularity, nonphysical. "
+            "Wheel correctly gives ⊥ at both points."
         ),
-        notes="V=b to fizyczna granica gazu rzeczywistego, V=0 to artefakt matematyczny",
+        notes="V=b is physical limit of real gas, V=0 is a mathematical artifact",
     ))
 
     Tc_sym = sp.Symbol("Tc", positive=True)
 
     db.append(PhysicsEquation(
-        name="Ciepło właściwe przy przejściu fazowym ~1/|T-Tc|",
+        name="Specific heat at phase transition ~1/|T-Tc|",
         domain="THERMO",
         expression=sp.Integer(1) / sp.Abs(T - Tc_sym),
         variables=[T],
@@ -661,23 +661,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": T, "value": Tc_sym,
-             "description": "T=Tc — punkt krytyczny, C → ∞ (wykładnik krytyczny α)"},
+             "description": "T=Tc — critical point, C → ∞ (critical exponent α)"},
         ],
         physical_meaning=(
-            "C ~ |T-Tc|^(-α) — dywergencja ciepła właściwego przy przejściu fazowym. "
-            "α ≈ 0.11 dla 3D Ising, α=0 (log) dla He-4. "
-            "Uproszczenie: α=1 (mean field). "
-            "Wheel: C(T=Tc) = ⊥ — punkt krytyczny jest osobliwością termodynamiczną."
+            "C ~ |T-Tc|^(-α) — specific heat divergence at phase transition. "
+            "α ≈ 0.11 for 3D Ising, α=0 (log) for He-4. "
+            "Simplification: α=1 (mean field). "
+            "Wheel: C(T=Tc) = ⊥ — critical point is a thermodynamic singularity."
         ),
-        notes="Wykładniki krytyczne opisują jak szybko zbliżamy się do ⊥",
+        notes="Critical exponents describe how fast we approach ⊥",
     ))
 
-    # ── QFT: dodatkowe amplitudy ──────────────────────────────────────────────
+    # ── QFT: additional amplitudes ────────────────────────────────────────────
 
-    s_var = sp.Symbol("s", positive=True)   # zmienna Mandelstama
+    s_var = sp.Symbol("s", positive=True)   # Mandelstam variable
 
     db.append(PhysicsEquation(
-        name="Amplituda Comptona 1/(s-m²)",
+        name="Compton amplitude 1/(s-m²)",
         domain="QFT",
         expression=sp.Integer(1) / (s_var - m**2),
         variables=[s_var],
@@ -685,19 +685,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": s_var, "value": m**2,
-             "description": "s=m² — biegun w kanale s (cząstka pośrednia on-shell)"},
+             "description": "s=m² — s-channel pole (intermediate particle on-shell)"},
         ],
         physical_meaning=(
-            "Amplituda rozpraszania Comptona: A ~ 1/(s-m²). "
-            "s = (p+k)² — zmienna Mandelstama. "
-            "Biegun przy s=m²: cząstka pośrednia staje się rzeczywista (on-shell). "
-            "Identyczna struktura co propagator skalarny — ⊥ = cząstka asymptotyczna."
+            "Compton scattering amplitude: A ~ 1/(s-m²). "
+            "s = (p+k)² — Mandelstam variable. "
+            "Pole at s=m²: intermediate particle becomes real (on-shell). "
+            "Identical structure to scalar propagator — ⊥ = asymptotic particle."
         ),
-        notes="Potwierdza: bieguny w zmiennych Mandelstama to on-shell, czyli ⊥",
+        notes="Confirms: poles in Mandelstam variables mean on-shell, i.e. ⊥",
     ))
 
     db.append(PhysicsEquation(
-        name="QED wymiana fotonu 1/q²",
+        name="QED photon exchange 1/q²",
         domain="QFT",
         expression=sp.Integer(1) / q_mom**2,
         variables=[q_mom],
@@ -705,21 +705,21 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": q_mom, "value": sp.S.Zero,
-             "description": "q=0 — foton o zerowym pędzie (IR, potencjał Coulomba)"},
+             "description": "q=0 — zero-momentum photon (IR, Coulomb potential)"},
         ],
         physical_meaning=(
-            "Amplituda wymiany fotonu w QED: M ~ e²/q². "
-            "Limit q→0: potencjał Coulomba (odzyskujemy fizykę klasyczną). "
+            "Photon exchange amplitude in QED: M ~ e²/q². "
+            "Limit q→0: Coulomb potential (we recover classical physics). "
             "Wheel: M(q=0) = ⊥. "
-            "Połączenie QED z klasyczną elektrodynamiką przez granicę q→0."
+            "Connection between QED and classical electrodynamics via limit q→0."
         ),
-        notes="q→0 to granica klasyczna QED — Wheel daje ⊥ gdzie klasycznie V_C=∞",
+        notes="q→0 is the classical limit of QED — Wheel gives ⊥ where classically V_C=∞",
     ))
 
-    # ── Matematyka ────────────────────────────────────────────────────────────
+    # ── Mathematics ───────────────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Funkcja Gamma Γ(n) ~ 1/n przy n→0",
+        name="Gamma function Γ(n) ~ 1/n as n→0",
         domain="MATH",
         expression=sp.Integer(1) / n,
         variables=[n],
@@ -727,20 +727,20 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": n, "value": sp.S.Zero,
-             "description": "n=0 — pierwszy biegun Γ(n), residuum = 1"},
+             "description": "n=0 — first pole of Γ(n), residue = 1"},
         ],
         physical_meaning=(
-            "Γ(n) ~ 1/n przy n→0 (i przy n=-1,-2,...). "
-            "W regularyzacji wymiarowej QFT: Γ(ε) ~ 1/ε przy ε→0. "
-            "To jest źródło dywergencji UV w wymiarowej regularyzacji! "
+            "Γ(n) ~ 1/n as n→0 (and at n=-1,-2,...). "
+            "In QFT dimensional regularization: Γ(ε) ~ 1/ε as ε→0. "
+            "This is the source of UV divergences in dim reg! "
             "Wheel: Γ_pole(n=0) = ⊥. "
-            "Hipoteza: regularyzacja wymiarowa to substytut Wheel dla całek."
+            "Hypothesis: dimensional regularization is a substitute for Wheel in integrals."
         ),
-        notes="Most między Wheel a regularyzacją wymiarową — Γ(ε)=⊥ gdy ε→0",
+        notes="Bridge between Wheel and dimensional regularization — Γ(ε)=⊥ as ε→0",
     ))
 
     db.append(PhysicsEquation(
-        name="Funkcja ζ Riemanna — biegun przy s=1",
+        name="Riemann ζ function — pole at s=1",
         domain="MATH",
         expression=sp.Integer(1) / (s - sp.Integer(1)),
         variables=[s],
@@ -748,19 +748,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": s, "value": sp.Integer(1),
-             "description": "s=1 — biegun ζ(s), residuum = 1"},
+             "description": "s=1 — pole of ζ(s), residue = 1"},
         ],
         physical_meaning=(
-            "ζ(s) ~ 1/(s-1) przy s→1 — jedyny biegun funkcji Riemanna. "
+            "ζ(s) ~ 1/(s-1) as s→1 — the only pole of the Riemann function. "
             "Wheel: ζ_pole(s=1) = ⊥. "
-            "W fizyce: ζ-regularyzacja sumy 1+2+3+... = -1/12 omija biegun. "
-            "Hipoteza: ζ-regularyzacja to klasyczny substytut Wheel dla szeregów rozbieżnych."
+            "In physics: ζ-regularization of sum 1+2+3+... = -1/12 bypasses the pole. "
+            "Hypothesis: ζ-regularization is a classical substitute for Wheel for divergent series."
         ),
-        notes="ζ-regularyzacja i Wheel — dwa różne sposoby na tę samą osobliwość",
+        notes="ζ-regularization and Wheel — two different ways for the same singularity",
     ))
 
     db.append(PhysicsEquation(
-        name="Transformata Fouriera IR — 1/ω",
+        name="Fourier transform IR — 1/ω",
         domain="MATH",
         expression=sp.Integer(1) / omega,
         variables=[omega],
@@ -768,55 +768,55 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": omega, "value": sp.S.Zero,
-             "description": "ω=0 — IR dywergencja w przestrzeni częstości"},
+             "description": "ω=0 — IR divergence in frequency space"},
         ],
         physical_meaning=(
-            "F[1/t](ω) ~ 1/ω — transformata Fouriera funkcji 1/t. "
-            "IR dywergencja przy ω=0 pojawia się w: "
-            "akustyce (mody zerowe), QFT (miękkie fotony/gluony), "
-            "turbulencji (widmo Kołmogorowa). "
+            "F[1/t](ω) ~ 1/ω — Fourier transform of 1/t function. "
+            "IR divergence at ω=0 appears in: "
+            "acoustics (zero modes), QFT (soft photons/gluons), "
+            "turbulence (Kolmogorov spectrum). "
             "Wheel: (1/ω)(ω=0) = ⊥."
         ),
-        notes="IR dywergencje w QFT i Wheel — ω=0 to brak energii, stan nieosiągalny",
+        notes="IR divergences in QFT and Wheel — ω=0 means no energy, unattainable state",
     ))
 
 
     # ══════════════════════════════════════════════════════════════════════════
-    # NOWE RÓWNANIA — v0.9
-    # GR/COSMO: Milne/de Sitter, ADM, foton V_eff
-    # QFT: propagator gluonu QCD, Green oscylatora z tłumieniem, t-kanał Mandelstama
-    # THERMO: entropia Bekenstein-Hawkinga (pochodna), van Hove D(E)
-    # MATH: sinc², (1-cos)/x² — kontrprzykłady dla wheel_calculus.py
+    # NEW EQUATIONS — v0.9
+    # GR/COSMO: Milne/de Sitter, ADM, photon V_eff
+    # QFT: QCD gluon propagator, damped oscillator Green, Mandelstam t-channel
+    # THERMO: Bekenstein-Hawking entropy (derivative), van Hove D(E)
+    # MATH: sinc², (1-cos)/x² — counterexamples for wheel_calculus.py
     # ══════════════════════════════════════════════════════════════════════════
 
-    # ── GR/COSMO: Metryka de Sittera — horyzont kosmologiczny ────────────────
+    # ── GR/COSMO: de Sitter Metric — cosmological horizon ─────────────────────
 
     db.append(PhysicsEquation(
-        name="Metryka de Sittera — g_rr = 1/(1 - r²/R_H²)",
+        name="de Sitter metric — g_rr = 1/(1 - r²/R_H²)",
         domain="COSMO",
-        expression=sp.Integer(1) / (1 - r**2 / r_s**2),   # r_s pełni rolę R_H
+        expression=sp.Integer(1) / (1 - r**2 / r_s**2),   # r_s plays the role of R_H
         variables=[r],
         parameters=[r_s],
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": r_s,
-             "description": "r = R_H — horyzont kosmologiczny de Sittera (odpowiednik r_s w Schwarzschildzie)"},
+             "description": "r = R_H — de Sitter cosmological horizon (equivalent of r_s in Schwarzschild)"},
         ],
         physical_meaning=(
-            "g_rr metryki de Sittera: 1/(1 - r²/R_H²) gdzie R_H = c/H = √(3/Λ). "
-            "Horyzont kosmologiczny przy r=R_H — dokładna analogia do horyzontu Schwarzschilda. "
-            "Kluczowa różnica: tutaj wnętrze (r<R_H) jest dostępne obserwatorowi, "
-            "a zewnętrze (r>R_H) jest za horyzontem (odwrotnie niż BH). "
-            "H może zmieniać znak w bardziej ogólnych modelach → dwa horyzonty. "
-            "Wheel: g_rr(r=R_H) = ⊥ — ta sama algebra co Schwarzschild."
+            "g_rr of de Sitter metric: 1/(1 - r²/R_H²) where R_H = c/H = √(3/Λ). "
+            "Cosmological horizon at r=R_H — exact analogy to Schwarzschild horizon. "
+            "Key difference: here the interior (r<R_H) is accessible to observer, "
+            "and exterior (r>R_H) is behind the horizon (reverse of BH). "
+            "H can change sign in more general models → two horizons. "
+            "Wheel: g_rr(r=R_H) = ⊥ — same algebra as Schwarzschild."
         ),
-        notes="Izomorfizm Schwarzschild ↔ de Sitter: ta sama struktura algebraiczna ⊥, odwrócona fizyka",
+        notes="Isomorphism Schwarzschild ↔ de Sitter: same ⊥ algebraic structure, reversed physics",
     ))
 
-    # ── GR: Energia ADM — osobliwość na granicy (r→∞) ─────────────────────────
+    # ── GR: ADM Energy — singularity at boundary (r→∞) ────────────────────────
 
     db.append(PhysicsEquation(
-        name="Energia ADM — człon 1/r przy r→∞",
+        name="ADM energy — 1/r term as r→∞",
         domain="GR",
         expression=sp.Integer(1) / r,
         variables=[r],
@@ -824,24 +824,24 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "r=0 — osobliwość centralna (tu jako osobliwość całkowa przy r→∞ to odwrotny problem)"},
+             "description": "r=0 — central singularity (here as integral singularity at r→∞ is reverse problem)"},
         ],
         physical_meaning=(
-            "Energia ADM (Arnowitt-Deser-Misner) — całkowa energia układu w OTW. "
+            "ADM Energy (Arnowitt-Deser-Misner) — integral energy of the system in GR. "
             "E_ADM = -(c²/16πG) ∮ (∂_j h_ii - ∂_i h_ij) dS^j. "
-            "Asymptotycznie: h_ij ≈ δ_ij(1 + 2GM/rc²) — człon 1/r dominuje przy r→∞. "
-            "ODWRÓCONY PROBLEM: osobliwość nie w centrum (r=0) ale na granicy całkowania. "
-            "Wheel operuje punktowo — 1/r przy r=0 daje ⊥, przy r→∞ wyraz 1/r→0 (regularny). "
-            "Kontrast z poprzednimi: tu ⊥ w centrum nie jest problemem ADM, "
-            "lecz zachowanie przy r→∞ decyduje o energii."
+            "Asymptotically: h_ij ≈ δ_ij(1 + 2GM/rc²) — 1/r term dominates as r→∞. "
+            "REVERSED PROBLEM: singularity not in center (r=0) but at integration boundary. "
+            "Wheel operates pointwise — 1/r at r=0 gives ⊥, at r→∞ the 1/r term→0 (regular). "
+            "Contrast with previous: here ⊥ in center is not ADM problem, "
+            "but behavior at r→∞ determines the energy."
         ),
-        notes="Odwrócony problem: fizyka w granicy r→∞, nie r→0. Wheel działa punktowo — inna logika.",
+        notes="Reversed problem: physics in limit r→∞, not r→0. Wheel works pointwise — different logic.",
     ))
 
-    # ── GR: Potencjał efektywny dla fotonów (fotosfera Schwarzschilda) ─────────
+    # ── GR: Effective potential for photons (Schwarzschild photosphere) ───────
 
     db.append(PhysicsEquation(
-        name="Potencjał fotonu V_ph = (1-r_s/r)/r²",
+        name="Photon potential V_ph = (1-r_s/r)/r²",
         domain="GR",
         expression=(1 - r_s / r) / r**2,
         variables=[r],
@@ -849,30 +849,30 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "r=0 — osobliwość fizyczna (V_ph → ∞)"},
+             "description": "r=0 — physical singularity (V_ph → ∞)"},
             {"var": r, "value": r_s,
-             "description": "r=r_s — horyzont, f(r)=0 kasuje 1/r², wynik V_ph=0"},
+             "description": "r=r_s — horizon, f(r)=0 cancels 1/r², result V_ph=0"},
         ],
         physical_meaning=(
-            "V_ph = f(r)/r² = (1-r_s/r)/r² — efektywny potencjał dla fotonów (l=0, m=0) "
-            "w Schwarzschildzie (współrzędna żółwia). "
-            "Fotosfera (niestabilna orbita kołowa fotonów) przy r_ph = 3r_s/2, "
-            "gdzie dV_ph/dr = 0: V_ph(r_ph) = 4/(27r_s²) — skończony. "
-            "Uzupełnienie Klein-Gordon V_eff dla bezmasowych (m=0, l=0). "
-            "Przy r=r_s: V_ph = 0 (bariera znika na horyzoncie — analogia do KG). "
-            "Przy r=0: V_ph = ⊥ (osobliwość fizyczna)."
+            "V_ph = f(r)/r² = (1-r_s/r)/r² — effective potential for photons (l=0, m=0) "
+            "in Schwarzschild (tortoise coordinate). "
+            "Photosphere (unstable circular photon orbit) at r_ph = 3r_s/2, "
+            "where dV_ph/dr = 0: V_ph(r_ph) = 4/(27r_s²) — finite. "
+            "Complements Klein-Gordon V_eff for massless particles (m=0, l=0). "
+            "At r=r_s: V_ph = 0 (barrier disappears at horizon — analogy to KG). "
+            "At r=0: V_ph = ⊥ (physical singularity)."
         ),
-        notes="Uzupełnia KG V_eff dla bezmasowych — m=0, l=0. Fotosfera r_ph=3r_s/2 jest regularna.",
+        notes="Complements KG V_eff for massless — m=0, l=0. Photosphere r_ph=3r_s/2 is regular.",
     ))
 
-    # ── QFT: Propagator gluonu z samooddziaływaniem QCD ───────────────────────
+    # ── QFT: Gluon propagator with QCD self-interaction ───────────────────────
 
-    alpha_s = sp.Symbol("alpha_s", positive=True)   # stała sprzężenia QCD
-    mu_r    = sp.Symbol("mu_r",    positive=True)   # skala renormalizacji
-    k2      = sp.Symbol("k2",      positive=True)   # k² (pęd²)
+    alpha_s = sp.Symbol("alpha_s", positive=True)   # QCD coupling constant
+    mu_r    = sp.Symbol("mu_r",    positive=True)   # renormalization scale
+    k2      = sp.Symbol("k2",      positive=True)   # k² (momentum²)
 
     db.append(PhysicsEquation(
-        name="Propagator gluonu QCD z poprawką pętlową",
+        name="QCD gluon propagator with loop correction",
         domain="QFT",
         expression=sp.Integer(1) / (k2 * (1 + alpha_s * sp.log(k2 / mu_r**2))),
         variables=[k2],
@@ -880,29 +880,29 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": k2, "value": sp.S.Zero,
-             "description": "k²=0 — biegun IR (foton o zerowym pędzie, jak w QED)"},
+             "description": "k²=0 — IR pole (zero-momentum photon, as in QED)"},
             {"var": k2, "value": mu_r**2 * sp.exp(-sp.Integer(1) / alpha_s),
-             "description": "Biegun Landaua QCD — k²=μ²·exp(-1/αs), nieperturbacyjny"},
+             "description": "QCD Landau pole — k²=μ²·exp(-1/αs), non-perturbative"},
         ],
         physical_meaning=(
-            "Propagator gluonu z jednostronną poprawką pętlową w QCD: 1/(k²(1+αs·log(k²/μ²))). "
-            "DWA typy biegunów — oba nieznane Wheel do tej pory: "
-            "(1) k²=0: standardowy biegun IR jak w QED (oczekiwane ⊥). "
-            "(2) Biegun Landaua: k²=μ²·exp(-1/αs) — biegun LOGARYTMICZNY, "
-            "inny typ niż bieguny algebraiczne 1/xⁿ. "
-            "W QED odpowiednik jest niefizyczny (10^280 GeV). "
-            "W QCD biegun Landaua jest nieperturbacyjny — pojawia się w skali konfinementu (~ΛQCD). "
-            "Pytanie: czy Wheel poprawnie wykrywa bieguny logarytmiczne? Niezbadany teren."
+            "Gluon propagator with one-loop correction in QCD: 1/(k²(1+αs·log(k²/μ²))). "
+            "TWO types of poles — both unknown to Wheel so far: "
+            "(1) k²=0: standard IR pole like in QED (expected ⊥). "
+            "(2) Landau pole: k²=μ²·exp(-1/αs) — LOGARITHMIC pole, "
+            "different type than algebraic poles 1/xⁿ. "
+            "In QED counterpart is unphysical (10^280 GeV). "
+            "In QCD Landau pole is non-perturbative — appears at confinement scale (~ΛQCD). "
+            "Question: does Wheel correctly detect logarithmic poles? Unexplored territory."
         ),
-        notes="NOWY TYP: biegun logarytmiczny. Wheel dotąd testowany tylko na biegunach algebraicznych.",
+        notes="NEW TYPE: logarithmic pole. Wheel tested only on algebraic poles so far.",
     ))
 
-    # ── QFT: Funkcja Greena oscylatora z tłumieniem (pomost rezonans↔QM) ──────
+    # ── QFT: Damped oscillator Green function (bridge resonance↔QM) ───────────
 
-    gamma_d = sp.Symbol("gamma_d", positive=True)   # współczynnik tłumienia
+    gamma_d = sp.Symbol("gamma_d", positive=True)   # damping coefficient
 
     db.append(PhysicsEquation(
-        name="Green oscylatora z tłumieniem G(ω) = 1/(ω²-ω₀²+iγω)",
+        name="Damped oscillator Green G(ω) = 1/(ω²-ω₀²+iγω)",
         domain="QFT",
         expression=sp.Integer(1) / (omega**2 - omega0**2 + sp.I * gamma_d * omega),
         variables=[omega],
@@ -910,31 +910,31 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": gamma_d, "value": sp.S.Zero,
-             "description": "γ→0 — biegun wraca na oś rzeczywistą: ω=±ω₀ (rezonans klasyczny)"},
+             "description": "γ→0 — pole returns to real axis: ω=±ω₀ (classical resonance)"},
             {"var": omega, "value": sp.I * gamma_d / 2 + sp.sqrt(omega0**2 - gamma_d**2 / 4),
-             "description": "Biegun w górnej półpłaszczyźnie zespolonej (dla γ>0)"},
+             "description": "Pole in upper complex half-plane (for γ>0)"},
         ],
         physical_meaning=(
-            "G(ω) = 1/(ω²-ω₀²+iγω) — funkcja Greena oscylatora tłumionego. "
-            "Biegun przesuwa się do płaszczyzny zespolonej gdy γ>0: "
+            "G(ω) = 1/(ω²-ω₀²+iγω) — Green function of damped oscillator. "
+            "Pole moves to complex plane when γ>0: "
             "ω_± = ±√(ω₀²-γ²/4) + iγ/2. "
-            "POMOST między trzema obiektami: "
-            "(1) γ=0: rezonans klasyczny 1/(ω²-ω₀²) — już w bazie. "
-            "(2) γ→0⁺: recepta iε Feynmana! (iγω pełni rolę iε). "
-            "(3) γ>0: fizyczna szerokość rezonansu = czas życia stanu kwantowego (reguła Breit-Wignera). "
-            "Wheel operuje na liczbach rzeczywistych — ω jest rzeczywiste. "
-            "Biegun jest zespolony → Wheel NIE trafi w niego przez podstawienie rzeczywiste. "
-            "To otwiera pytanie: jak Wheel radzi sobie z biegunami zespolonymi?"
+            "BRIDGE between three objects: "
+            "(1) γ=0: classical resonance 1/(ω²-ω₀²) — already in db. "
+            "(2) γ→0⁺: Feynman's iε prescription! (iγω acts as iε). "
+            "(3) γ>0: physical resonance width = quantum state lifetime (Breit-Wigner rule). "
+            "Wheel operates on real numbers — ω is real. "
+            "Pole is complex → Wheel will NOT hit it via real substitution. "
+            "This opens a question: how does Wheel deal with complex poles?"
         ),
-        notes="KLUCZOWY: γ→0 to ciągłe przejście do rezonans↔iε. Bieguny zespolone to nowe terytorium dla Wheel.",
+        notes="CRITICAL: γ→0 is continuous transition to resonance↔iε. Complex poles are new territory for Wheel.",
     ))
 
-    # ── QFT: t-kanał Mandelstama — osobliwość przy pędzie przekazanym t=0 ──────
+    # ── QFT: Mandelstam t-channel — singularity at momentum transfer t=0 ──────
 
-    t_man = sp.Symbol("t_man", real=True)   # zmienna Mandelstama t
+    t_man = sp.Symbol("t_man", real=True)   # Mandelstam variable t
 
     db.append(PhysicsEquation(
-        name="Amplituda t-kanału 1/(t-m²)",
+        name="t-channel amplitude 1/(t-m²)",
         domain="QFT",
         expression=sp.Integer(1) / (t_man - m**2),
         variables=[t_man],
@@ -942,26 +942,26 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": t_man, "value": m**2,
-             "description": "t=m² — cząstka wymieniana on-shell (limit Coulomba gdy m→0, t→0)"},
+             "description": "t=m² — exchanged particle on-shell (Coulomb limit as m→0, t→0)"},
             {"var": t_man, "value": sp.S.Zero,
-             "description": "t=0 przy m=0 — Coulomb limit: wymiana bezmasowego bozonu przy zerowym pędzie"},
+             "description": "t=0 at m=0 — Coulomb limit: exchange of massless boson at zero momentum"},
         ],
         physical_meaning=(
-            "Amplituda w t-kanale rozpraszania 2→2: M ~ 1/(t-m²), t=(p1-p3)². "
-            "t jest pędem przekazanym — zawsze t≤0 dla fizycznego rozpraszania. "
-            "RÓŻNICA od s-kanału (amplituda Comptona): "
-            "s > 0 (energia w środku masy), t ≤ 0 (pęd przekazany). "
-            "Przy m→0: biegun przy t=0 — limit Coulomba QED (potencjał 1/q²). "
-            "Wheel: 1/(t-m²) przy t=m² → ⊥. Przy t=0, m=0 → ⊥. "
-            "Uzupełnia s-kanał (amplituda Comptona) — pełny obraz zmiennych Mandelstama s,t."
+            "Amplitude in t-channel 2→2 scattering: M ~ 1/(t-m²), t=(p1-p3)². "
+            "t is momentum transfer — always t≤0 for physical scattering. "
+            "DIFFERENCE from s-channel (Compton amplitude): "
+            "s > 0 (center-of-mass energy), t ≤ 0 (momentum transfer). "
+            "As m→0: pole at t=0 — QED Coulomb limit (1/q² potential). "
+            "Wheel: 1/(t-m²) at t=m² → ⊥. At t=0, m=0 → ⊥. "
+            "Complements s-channel (Compton amplitude) — full picture of Mandelstam variables s,t."
         ),
-        notes="Dopełnia s-kanał: teraz mamy s i t. u-kanał = s+t+u=Σm² — nie dodaje nowej struktury.",
+        notes="Complements s-channel: now we have s and t. u-channel = s+t+u=Σm² — adds no new structure.",
     ))
 
-    # ── THERMO: Entropia Bekenstein-Hawkinga — pochodna dS/dM ─────────────────
+    # ── THERMO: Bekenstein-Hawking Entropy — derivative dS/dM ─────────────────
 
     db.append(PhysicsEquation(
-        name="Entropia BH — dS/dM = 1/T_H ~ M",
+        name="BH entropy — dS/dM = 1/T_H ~ M",
         domain="THERMO",
         expression=8 * sp.pi * G * M * kB / (hbar * c**3),
         variables=[M],
@@ -969,28 +969,28 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": M, "value": sp.S.Zero,
-             "description": "M=0 — brak czarnej dziury, dS/dM → 0 (ale T_H=1/(dS/dM)→⊥)"},
+             "description": "M=0 — no black hole, dS/dM → 0 (but T_H=1/(dS/dM)→⊥)"},
         ],
         physical_meaning=(
-            "Entropia Bekenstein-Hawkinga: S_BH = A/(4l_P²) = 4πGM²k_B/(ħc). "
-            "dS/dM = 8πGMk_B/(ħc³) = 1/T_H — termodynamiczna definicja temperatury. "
-            "Samo S_BH jest skończone i dobrze zdefiniowane (brak osobliwości w S). "
-            "Ale: T_H = (dS/dM)^(-1) = ħc³/(8πGMk_B) → ⊥ przy M=0. "
-            "POWIĄZANIE z temperaturą Hawkinga (już w bazie): dS/dM = 1/T_H. "
-            "dS/dM → 0 gdy M→0: entropia rośnie coraz wolniej przy ewaporacji. "
-            "Wheel: dS/dM(M=0) = 0 (skończone!), ale T_H = 1/(dS/dM) = ⊥. "
-            "To pokazuje jak ⊥ propaguje przez odwracanie: skończone → ⊥ przez /0."
+            "Bekenstein-Hawking Entropy: S_BH = A/(4l_P²) = 4πGM²k_B/(ħc). "
+            "dS/dM = 8πGMk_B/(ħc³) = 1/T_H — thermodynamic definition of temperature. "
+            "S_BH itself is finite and well-defined (no singularity in S). "
+            "But: T_H = (dS/dM)^(-1) = ħc³/(8πGMk_B) → ⊥ at M=0. "
+            "CONNECTION to Hawking temperature (already in db): dS/dM = 1/T_H. "
+            "dS/dM → 0 as M→0: entropy grows slower and slower during evaporation. "
+            "Wheel: dS/dM(M=0) = 0 (finite!), but T_H = 1/(dS/dM) = ⊥. "
+            "This shows how ⊥ propagates through inversion: finite → ⊥ via /0."
         ),
-        notes="dS/dM jest SKOŃCZONE przy M=0 (=0). Ale 1/(dS/dM)=T_H=⊥. Ćwiczenie z propagacji ⊥.",
+        notes="dS/dM is FINITE at M=0 (=0). But 1/(dS/dM)=T_H=⊥. Exercise with ⊥ propagation.",
     ))
 
-    # ── THERMO: Gęstość stanów van Hove'a ─────────────────────────────────────
+    # ── THERMO: van Hove Density of States ────────────────────────────────────
 
     E_sym  = sp.Symbol("E",   real=True)
-    E_c    = sp.Symbol("E_c", real=True)   # energia krytyczna
+    E_c    = sp.Symbol("E_c", real=True)   # critical energy
 
     db.append(PhysicsEquation(
-        name="Gęstość stanów van Hove'a D(E) ~ 1/√|E-E_c|",
+        name="van Hove density of states D(E) ~ 1/√|E-E_c|",
         domain="THERMO",
         expression=sp.Integer(1) / sp.sqrt(sp.Abs(E_sym - E_c)),
         variables=[E_sym],
@@ -998,23 +998,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": E_sym, "value": E_c,
-             "description": "E=E_c — punkt van Hove'a: krzywizna pasma energetycznego = 0, D(E)→∞"},
+             "description": "E=E_c — van Hove point: energy band curvature = 0, D(E)→∞"},
         ],
         physical_meaning=(
-            "D(E) ~ 1/√|E-E_c| — gęstość stanów przy punktach van Hove'a w ciele stałym. "
-            "Pojawia się gdy ∇_k E(k) = 0 (płaskie dno lub wierzchołek pasma). "
-            "Fizycznie: nieskończona gęstość stanów = nagromadzenie orbitali o tej samej energii. "
-            "Bezpośrednia konsekwencja dla: nadprzewodnictwa (BCS), efektu van Hove'a w optyce, "
-            "anomalii w cieple właściwym. "
-            "PORÓWNANIE z ciepłem właściwym ~1/|T-Tc|: "
-            "tamto dywerguje jako 1/x (wykładnik α=1, mean field), "
-            "to jako 1/√x (wykładnik α=1/2 — inne universality class). "
-            "Wheel: D(E_c) = ⊥ — punkt niestabilności w strukturze pasmowej."
+            "D(E) ~ 1/√|E-E_c| — density of states at van Hove points in a solid. "
+            "Appears when ∇_k E(k) = 0 (flat bottom or top of a band). "
+            "Physically: infinite density of states = accumulation of orbitals with same energy. "
+            "Direct consequence for: superconductivity (BCS), van Hove effect in optics, "
+            "specific heat anomalies. "
+            "COMPARISON with specific heat ~1/|T-Tc|: "
+            "the latter diverges as 1/x (exponent α=1, mean field), "
+            "this one as 1/√x (exponent α=1/2 — different universality class). "
+            "Wheel: D(E_c) = ⊥ — instability point in band structure."
         ),
-        notes="Wykładnik 1/2 (van Hove) vs 1 (mean field ciepło właściwe) — Wheel traktuje tak samo: ⊥.",
+        notes="Exponent 1/2 (van Hove) vs 1 (mean field specific heat) — Wheel treats identically: ⊥.",
     ))
 
-    # ── MATH: sinc²(x) = sin²(x)/x² — kontrprzykład kwadratowy ───────────────
+    # ── MATH: sinc²(x) = sin²(x)/x² — quadratic counterexample ────────────────
 
     db.append(PhysicsEquation(
         name="sinc²(x) = sin²(x)/x²",
@@ -1025,22 +1025,22 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.LIMIT,
         known_singular=[
             {"var": x, "value": sp.S.Zero,
-             "description": "Forma 0/0 — granica = 1 (tak samo jak sinc, bo lim sinc²=lim²sinc=1²=1)"},
+             "description": "0/0 form — limit = 1 (same as sinc, because lim sinc²=lim²sinc=1²=1)"},
         ],
         physical_meaning=(
-            "sinc²(x) = sin²(x)/x² — kwadrat funkcji sinc. "
-            "Pojawia się w: intensywności dyfrakcji przez szczelinę (I ~ sinc²), "
-            "widmie mocy sygnału prostokątnego, korelacji sygnałów. "
-            "Granica: lim(x→0) sin²(x)/x² = [lim sinc(x)]² = 1² = 1. "
+            "sinc²(x) = sin²(x)/x² — square of sinc function. "
+            "Appears in: diffraction intensity through a slit (I ~ sinc²), "
+            "power spectrum of a rectangular signal, signal correlation. "
+            "Limit: lim(x→0) sin²(x)/x² = [lim sinc(x)]² = 1² = 1. "
             "Wheel: sin²(0)/0² = 0/0 → ⊥. "
-            "TEST dla wheel_calculus.py: czy moduł Taylora uogólnia się na potęgi? "
+            "TEST for wheel_calculus.py: does Taylor module generalize to powers? "
             "sin(x) ≈ x - x³/6 → sin²(x) ≈ x² - x⁴/3 → sin²(x)/x² ≈ 1 - x²/3 → 1. "
-            "Wheel_calculus powinien zwrócić 1, nie ⊥."
+            "Wheel_calculus should return 1, not ⊥."
         ),
-        notes="Kontrprzykład #2 dla wheel_calculus.py — Taylor wyższego rzędu. Wynik powinien: ⊥→1.",
+        notes="Counterexample #2 for wheel_calculus.py — higher order Taylor. Result should be: ⊥→1.",
     ))
 
-    # ── MATH: (1-cos(x))/x² — kontrprzykład kosinusowy ───────────────────────
+    # ── MATH: (1-cos(x))/x² — cosine counterexample ───────────────────────────
 
     db.append(PhysicsEquation(
         name="(1 - cos(x))/x²",
@@ -1051,29 +1051,29 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.LIMIT,
         known_singular=[
             {"var": x, "value": sp.S.Zero,
-             "description": "Forma 0/0 — granica = 1/2 (inny wynik niż sinc!)"},
+             "description": "0/0 form — limit = 1/2 (different result than sinc!)"},
         ],
         physical_meaning=(
-            "(1-cos(x))/x² — pojawia się w: "
-            "rozwinięciu energii kinetycznej (1-cos(ka)) w modelu tight-binding, "
-            "fazie akumulowanej przez qubit (geometryczna faza Berriego), "
-            "poprawkach do dyspersji fal. "
-            "Granica: lim(x→0) (1-cos(x))/x² = 1/2. "
-            "Dowód: cos(x) ≈ 1 - x²/2 + x⁴/24 → 1-cos(x) ≈ x²/2 → (1-cos)/x² → 1/2. "
+            "(1-cos(x))/x² — appears in: "
+            "kinetic energy expansion (1-cos(ka)) in tight-binding model, "
+            "phase accumulated by a qubit (geometric Berry phase), "
+            "corrections to wave dispersion. "
+            "Limit: lim(x→0) (1-cos(x))/x² = 1/2. "
+            "Proof: cos(x) ≈ 1 - x²/2 + x⁴/24 → 1-cos(x) ≈ x²/2 → (1-cos)/x² → 1/2. "
             "Wheel: (1-cos(0))/0² = 0/0 → ⊥. "
-            "KLUCZOWA RÓŻNICA od sinc i sinc²: granica ≠ 1, granica = 1/2. "
-            "Test dla wheel_calculus.py: czy moduł zwróci 1/2 a nie ⊥?"
+            "KEY DIFFERENCE from sinc and sinc²: limit ≠ 1, limit = 1/2. "
+            "Test for wheel_calculus.py: will module return 1/2 and not ⊥?"
         ),
-        notes="Kontrprzykład #3 dla wheel_calculus.py — granica = 1/2, nie 1. Inny rozwinięcie Taylora.",
+        notes="Counterexample #3 for wheel_calculus.py — limit = 1/2, not 1. Different Taylor expansion.",
     ))
 
     return db
 
 
-# ─── Interfejs bazy ───────────────────────────────────────────────────────────
+# ─── Database interface ───────────────────────────────────────────────────────
 
 class EquationsDB:
-    """Interfejs do bazy równań fizycznych."""
+    """Interface for physical equations database."""
 
     def __init__(self):
         self._db = build_database()
@@ -1092,7 +1092,7 @@ class EquationsDB:
 
     def print_catalogue(self) -> None:
         print("═" * 68)
-        print("  WHEELPHYSICS — Katalog równań fizycznych")
+        print("  WHEELPHYSICS — Catalogue of physical equations")
         print("═" * 68)
 
         domains = {}
@@ -1106,7 +1106,7 @@ class EquationsDB:
             for eq in eqs:
                 print(f"    {eq.one_liner()}")
 
-        print(f"\n  Razem: {len(self._db)} równań | {total_singular} znanych osobliwości")
+        print(f"\n  Total: {len(self._db)} equations | {total_singular} known singularities")
         print("═" * 68)
 
     def stats(self) -> dict:
@@ -1125,4 +1125,4 @@ if __name__ == "__main__":
     db.print_catalogue()
     print()
     stats = db.stats()
-    print(f"  Statystyki: {stats}")
+    print(f"  Statistics: {stats}")

@@ -2,17 +2,17 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-sympy_extension.py — most między SymPy a Wheel Algebra
+sympy_extension.py — bridge between SymPy and Wheel Algebra
 
-Pozwala używać standardowych wyrażeń SymPy i automatycznie
-wykrywać gdzie trzeba użyć Wheel zamiast klasycznej arytmetyki.
+Allows you to use standard SymPy expressions and automatically
+detect where Wheel needs to be used instead of classical arithmetic.
 
-Główne funkcje:
-  - expr_to_wheel()     : konwertuje wyrażenie SymPy → WheelNumber
-  - wheel_subs()        : bezpieczne podstawienie (nigdy nie rzuca wyjątku)
-  - is_singular_at()    : szybkie sprawdzenie czy wyrażenie ma osobliwość
-  - wheel_series()      : rozwinięcie w szereg w okolicy ⊥
-  - WheelFunction       : wrapper dla funkcji f(x) z obsługą ⊥
+Main functions:
+  - expr_to_wheel()     : converts a SymPy expression → WheelNumber
+  - wheel_subs()        : safe substitution (never throws an exception)
+  - is_singular_at()    : quick check if an expression has a singularity
+  - wheel_series()      : series expansion around ⊥
+  - WheelFunction       : wrapper for function f(x) with ⊥ support
 """
 
 from __future__ import annotations
@@ -29,32 +29,32 @@ from core.wheel_algebra import WheelAlgebra
 _wa = WheelAlgebra()
 
 
-# ─── Konwersja wyrażeń SymPy ──────────────────────────────────────────────────
+# ─── SymPy Expression Conversion ──────────────────────────────────────────────
 
 def expr_to_wheel(expr: sp.Basic) -> WheelNumber:
     """
-    Konwertuje wyrażenie SymPy do WheelNumber.
+    Converts a SymPy expression to a WheelNumber.
 
-    Jeśli wyrażenie zawiera nieskończoność, NaN lub zoo → ⊥.
-    Wyrażenia symboliczne są zachowane jako-jest (ewaluacja leniwa).
+    If the expression contains infinity, NaN, or zoo → ⊥.
+    Symbolic expressions are kept as-is (lazy evaluation).
     """
     expr = sp.sympify(expr)
 
     if expr in (sp.oo, sp.zoo, sp.nan, -sp.oo):
         return W(BOTTOM)
 
-    # Sprawdź czy wyrażenie jest numerycznie nieskończone
+    # Check if the expression is numerically infinite
     try:
         evaled = expr.evalf()
         if evaled in (sp.oo, sp.zoo, sp.nan, -sp.oo):
             return W(BOTTOM)
-        # Sprawdź float overflow
+        # Check float overflow
         if evaled.is_number:
             f = float(evaled)
             if not (f == f) or abs(f) == float('inf'):  # nan or inf
                 return W(BOTTOM)
     except (TypeError, ValueError, OverflowError):
-        pass  # Wyrażenie symboliczne — OK
+        pass  # Symbolic expression — OK
     except Exception:
         pass
 
@@ -67,15 +67,15 @@ def wheel_subs(
     trace: bool = False,
 ) -> WheelNumber:
     """
-    Bezpieczne podstawienie wartości do wyrażenia SymPy.
-    Nigdy nie rzuca wyjątku — zamiast tego zwraca ⊥.
+    Safe substitution of values into a SymPy expression.
+    Never throws an exception — returns ⊥ instead.
 
     Args:
-        expr:          wyrażenie SymPy
-        substitutions: {symbol: wartość}
-        trace:         drukuj co się dzieje
+        expr:          SymPy expression
+        substitutions: {symbol: value}
+        trace:         print what is happening
 
-    Przykład:
+    Example:
         r, r_s = sp.symbols("r r_s")
         g_rr = 1 / (1 - r_s/r)
         wheel_subs(g_rr, {r: r_s})  →  W(⊥)
@@ -90,11 +90,11 @@ def is_singular_at(
     value,
 ) -> bool:
     """
-    Szybkie sprawdzenie czy wyrażenie ma osobliwość przy var=value.
+    Quick check if the expression has a singularity at var=value.
 
     Returns:
-        True  — jest osobliwość (Wheel da ⊥)
-        False — brak osobliwości
+        True  — singularity present (Wheel gives ⊥)
+        False — no singularity
     """
     result = wheel_subs(expr, {var: value})
     return result.is_bottom
@@ -106,8 +106,8 @@ def singularity_map(
     values: list,
 ) -> dict:
     """
-    Mapuje listę wartości na wyniki Wheel.
-    Pokazuje gdzie wyrażenie jest regularne, a gdzie daje ⊥.
+    Maps a list of values to Wheel results.
+    Shows where the expression is regular and where it yields ⊥.
 
     Returns:
         {value: WheelNumber}
@@ -115,7 +115,7 @@ def singularity_map(
     return {v: wheel_subs(expr, {var: v}) for v in values}
 
 
-# ─── Rozwinięcie w okolicy osobliwości ───────────────────────────────────────
+# ─── Expansion around singularity ────────────────────────────────────────────
 
 def wheel_series_around(
     expr: sp.Basic,
@@ -124,15 +124,15 @@ def wheel_series_around(
     n_terms: int = 4,
 ) -> dict:
     """
-    Analizuje zachowanie wyrażenia w okolicy punktu osobliwego.
+    Analyzes the behavior of an expression around a singular point.
 
-    Dla każdego epsilon w {+, -} sprawdza:
-      - wartość przy point ± epsilon dla małych epsilon
-      - czy istnieje granica (i jaka)
-      - wynik Wheel przy dokładnym point
+    For each epsilon in {+, -} it checks:
+      - value at point ± epsilon for small epsilon
+      - whether a limit exists (and what it is)
+      - Wheel result at exact point
 
     Returns:
-        dict z wynikami analizy
+        dict with analysis results
     """
     point = sp.sympify(point)
     epsilon = sp.Symbol("epsilon", positive=True)
@@ -148,48 +148,48 @@ def wheel_series_around(
         "series_left":      None,
     }
 
-    # Granice
+    # Limits
     try:
         result["limit_from_right"] = sp.limit(expr, var, point, "+")
     except Exception:
-        result["limit_from_right"] = "nie istnieje"
+        result["limit_from_right"] = "does not exist"
 
     try:
         result["limit_from_left"] = sp.limit(expr, var, point, "-")
     except Exception:
-        result["limit_from_left"] = "nie istnieje"
+        result["limit_from_left"] = "does not exist"
 
-    # Szereg Laurenta (jeśli możliwy)
+    # Laurent series (if possible)
     try:
         series = sp.series(expr, var, point, n=n_terms)
         result["laurent_series"] = series
     except Exception:
-        result["laurent_series"] = "nie daje się rozwinąć"
+        result["laurent_series"] = "cannot be expanded"
 
     return result
 
 
 def print_singularity_analysis(analysis: dict) -> None:
-    """Ładny wydruk analizy z wheel_series_around."""
-    print(f"  Wyrażenie    : {analysis['expression']}")
-    print(f"  Zmienna      : {analysis['variable']} → {analysis['point']}")
-    print(f"  Wheel(punkt) : {analysis['wheel_at_point']}")
-    print(f"  Granica (+)  : {analysis['limit_from_right']}")
-    print(f"  Granica (-)  : {analysis['limit_from_left']}")
+    """Pretty print for analysis from wheel_series_around."""
+    print(f"  Expression   : {analysis['expression']}")
+    print(f"  Variable     : {analysis['variable']} → {analysis['point']}")
+    print(f"  Wheel(point) : {analysis['wheel_at_point']}")
+    print(f"  Limit (+)    : {analysis['limit_from_right']}")
+    print(f"  Limit (-)    : {analysis['limit_from_left']}")
     if "laurent_series" in analysis:
         print(f"  Laurent      : {analysis['laurent_series']}")
 
 
-# ─── WheelFunction — wrapper dla funkcji symbolicznych ───────────────────────
+# ─── WheelFunction — wrapper for symbolic functions ──────────────────────────
 
 class WheelFunction:
     """
-    Wrapper dla funkcji symbolicznej f(x) z obsługą ⊥.
+    Wrapper for a symbolic function f(x) with ⊥ support.
 
-    Pozwala ewaluować funkcje SymPy w sposób bezpieczny —
-    zamiast wyjątku lub ∞ zwraca ⊥.
+    Allows SymPy functions to be evaluated safely —
+    returns ⊥ instead of an exception or ∞.
 
-    Przykład:
+    Example:
         g_rr = WheelFunction(1/(1 - r_s/r), r, name="g_rr Schwarzschild")
         g_rr(r_s)    →  ⊥
         g_rr(2*r_s)  →  -1
@@ -208,15 +208,15 @@ class WheelFunction:
     def __call__(self, *values) -> WheelNumber:
         if len(values) != len(self.variables):
             raise ValueError(
-                f"Oczekiwano {len(self.variables)} argumentów, "
-                f"dostałem {len(values)}"
+                f"Expected {len(self.variables)} arguments, "
+                f"got {len(values)}"
             )
         subs = dict(zip(self.variables, values))
         return wheel_subs(self.expr, subs)
 
     def scan_range(self, var: sp.Symbol, values: list) -> list[tuple]:
         """
-        Ewaluuje funkcję dla listy wartości.
+        Evaluates the function for a list of values.
         Returns: [(value, WheelNumber), ...]
         """
         results = []
@@ -232,7 +232,7 @@ class WheelFunction:
         var: sp.Symbol,
         values: list,
     ) -> list:
-        """Zwraca tylko te wartości gdzie wynik = ⊥."""
+        """Returns only those values where result = ⊥."""
         return [
             (v, r) for v, r in self.scan_range(var, values)
             if r.is_bottom
@@ -242,11 +242,11 @@ class WheelFunction:
         return f"WheelFunction({self.name}: {self.expr})"
 
 
-# ─── Testy i demo ─────────────────────────────────────────────────────────────
+# ─── Tests and demo ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("═" * 60)
-    print("  sympy_extension — integracja SymPy + Wheel")
+    print("  sympy_extension — SymPy + Wheel integration")
     print("═" * 60)
 
     r, r_s, m, p = sp.symbols("r r_s m p", positive=True)
@@ -258,14 +258,14 @@ if __name__ == "__main__":
         (sp.oo,                   "∞ → ⊥"),
         (sp.zoo,                  "zoo → ⊥"),
         (sp.nan,                  "nan → ⊥"),
-        (1/(r - r_s),             "1/(r-r_s) symboliczne"),
+        (1/(r - r_s),             "1/(r-r_s) symbolic"),
     ]
     for expr, desc in cases:
         result = expr_to_wheel(expr)
         print(f"  {desc:<30} → {result}")
 
-    # ── Test 2: wheel_subs na metryce Schwarzschilda
-    print("\n▶  wheel_subs — g_rr Schwarzschilda przy różnych r")
+    # ── Test 2: wheel_subs on Schwarzschild metric
+    print("\n▶  wheel_subs — Schwarzschild g_rr at different r")
     g_rr_expr = 1 / (1 - r_s / r)
     test_values = {
         "r = 2·r_s":  {r: 2*r_s},
@@ -277,24 +277,24 @@ if __name__ == "__main__":
         print(f"  {desc:<15} → {result}")
 
     # ── Test 3: WheelFunction
-    print("\n▶  WheelFunction — g_rr Schwarzschilda")
+    print("\n▶  WheelFunction — Schwarzschild g_rr")
     g_rr_fn = WheelFunction(1/(1 - r_s/r), r, name="g_rr")
     print(f"  {g_rr_fn}")
     for val, label in [(2*r_s, "2·r_s"), (r_s, "r_s"), (r_s/2, "r_s/2")]:
         print(f"  g_rr({label}) = {g_rr_fn(val)}")
 
-    # ── Test 4: Analiza osobliwości
-    print("\n▶  Analiza osobliwości: 1/(p²-m²) przy p=m")
+    # ── Test 4: Singularity analysis
+    print("\n▶  Singularity analysis: 1/(p²-m²) at p=m")
     propagator = 1 / (p**2 - m**2)
     analysis = wheel_series_around(propagator, p, m)
     print_singularity_analysis(analysis)
 
     # ── Test 5: singularity_map
-    print("\n▶  Mapa osobliwości: 1/r dla r ∈ {-1, 0, 1, 2}")
+    print("\n▶  Singularity map: 1/r for r ∈ {-1, 0, 1, 2}")
     x = sp.Symbol("x")
     smap = singularity_map(1/x, x, [-1, 0, 1, 2])
     for val, result in smap.items():
-        marker = " ← ⊥ (osobliwość)" if result.is_bottom else ""
+        marker = " ← ⊥ (singularity)" if result.is_bottom else ""
         print(f"  x={val:>2} → {result}{marker}")
 
     print("\n" + "═" * 60)

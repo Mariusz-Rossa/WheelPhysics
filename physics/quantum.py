@@ -2,20 +2,20 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-quantum.py — mechanika kwantowa i QED w Wheel Algebra
+quantum.py — quantum mechanics and QED in Wheel Algebra
 
-Badane obiekty:
-  1. Propagator Feynmana (skalarny, fermionowy, fotonowy)
-  2. Dywergencje w QED (samoczynna energia elektronu, polaryzacja próżni)
-  3. Renormalizacja — czy Wheel czyni ją zbędną?
-  4. Równanie Diraca przy zerowej masie
-  5. Relacja dyspersji i masa powłoki (on-shell)
+Investigated objects:
+  1. Feynman propagator (scalar, fermion, photon)
+  2. Divergences in QED (electron self-energy, vacuum polarization)
+  3. Renormalization — does Wheel make it redundant?
+  4. Dirac equation at zero mass
+  5. Dispersion relation and mass shell (on-shell)
 
-Kluczowe pytania badawcze:
-  Q1: Co Wheel robi z biegunami propagatora?
-  Q2: Czy całki pętlowe QED (dywergentne UV) dają ⊥ w Wheel?
-  Q3: Czy renormalizacja to obejście braku Wheel w klasycznej analizie?
-  Q4: Co Wheel mówi o równaniu Diraca dla m=0 (neutrina)?
+Key research questions:
+  Q1: What does Wheel do with propagator poles?
+  Q2: Do QED loop integrals (UV divergent) yield ⊥ in Wheel?
+  Q3: Is renormalization a workaround for the lack of Wheel in classical analysis?
+  Q4: What does Wheel say about Dirac equation for m=0 (neutrinos)?
 """
 
 from __future__ import annotations
@@ -32,82 +32,82 @@ from core.sympy_extension import (
 
 _wa = WheelAlgebra()
 
-# ─── Symbole ──────────────────────────────────────────────────────────────────
+# ─── Symbols ──────────────────────────────────────────────────────────────────
 
 p, m, k, q   = sp.symbols("p m k q",     real=True)
 p0, px       = sp.symbols("p0 px",       real=True)
-m_e          = sp.Symbol("m_e",          positive=True)   # masa elektronu
-e_charge     = sp.Symbol("e",            positive=True)   # ładunek
-Lambda_uv    = sp.Symbol("Lambda",       positive=True)   # cut-off UV
-mu_r         = sp.Symbol("mu",           positive=True)   # skala renorm.
-epsilon_reg  = sp.Symbol("epsilon",      positive=True)   # regularyzacja dim.
+m_e          = sp.Symbol("m_e",          positive=True)   # electron mass
+e_charge     = sp.Symbol("e",            positive=True)   # charge
+Lambda_uv    = sp.Symbol("Lambda",       positive=True)   # UV cut-off
+mu_r         = sp.Symbol("mu",           positive=True)   # renorm. scale
+epsilon_reg  = sp.Symbol("epsilon",      positive=True)   # dim. regularization
 hbar         = sp.Symbol("hbar",         positive=True)
 c_sym        = sp.Symbol("c",            positive=True)
-alpha        = sp.Symbol("alpha",        positive=True)   # stała struktury subtelnej ~ 1/137
+alpha        = sp.Symbol("alpha",        positive=True)   # fine structure const ~ 1/137
 
 
-# ─── 1. Propagatory Feynmana ──────────────────────────────────────────────────
+# ─── 1. Feynman Propagators ───────────────────────────────────────────────────
 
 class FeynmanPropagators:
     """
-    Propagatory Feynmana — serce mechanizmu perturbacyjnego QFT.
+    Feynman propagators — the heart of perturbative QFT mechanism.
 
-    Każdy propagator ma biegun przy p²=m² (na powłoce masy).
-    W klasycznej QFT obsługuje się to receptyną Feynmana: p²-m²+iε.
-    W Wheel: biegun → ⊥.
+    Each propagator has a pole at p²=m² (on the mass shell).
+    In classical QFT this is handled by Feynman prescription: p²-m²+iε.
+    In Wheel: pole → ⊥.
 
-    Pytanie: czy ⊥ w propagatorze może zastąpić receptyną iε?
+    Question: can ⊥ in the propagator replace the iε prescription?
     """
 
     def scalar_propagator(self) -> sp.Basic:
         """
-        Propagator skalarny (cząstka Kleina-Gordona):
+        Scalar propagator (Klein-Gordon particle):
           D_F(p) = i / (p² - m² + iε)
 
-        Biegun przy p² = m²  (cząstka rzeczywista, on-shell)
+        Pole at p² = m²  (real particle, on-shell)
         """
-        # Bez iε (granica ε→0)
+        # Without iε (limit ε→0)
         return sp.Integer(1) / (p**2 - m**2)
 
     def fermion_propagator(self) -> sp.Basic:
         """
-        Propagator fermionowy (elektron w QED):
+        Fermion propagator (electron in QED):
           S_F(p) = i(p̸ + m) / (p² - m² + iε)
 
-        Licznik p̸ + m = γ^μ p_μ + m  (macierze Diraca — skalaryzujemy)
-        Biegun: ten sam co skalarny, p²=m²
+        Numerator p̸ + m = γ^μ p_μ + m  (Dirac matrices — we scalarize)
+        Pole: same as scalar, p²=m²
         """
-        # Skalaryzowany (ślad po spinorach / norma)
-        numerator   = p + m_e          # uproszczenie: p̸ → p (1D)
+        # Scalarized (trace over spinors / norm)
+        numerator   = p + m_e          # simplification: p̸ → p (1D)
         denominator = p**2 - m_e**2
         return numerator / denominator
 
     def photon_propagator(self) -> sp.Basic:
         """
-        Propagator fotonowy (gauge Lorenza):
+        Photon propagator (Lorenz gauge):
           D_F^μν(k) = -i g^μν / (k² + iε)
 
-        Biegun przy k²=0 (foton bezmasowy)
+        Pole at k²=0 (massless photon)
         """
-        return sp.Integer(1) / k**2    # skalarne g^μν → 1
+        return sp.Integer(1) / k**2    # scalar g^μν → 1
 
     def analyse_all(self) -> None:
-        """Analiza wszystkich propagatorów w Wheel."""
+        """Analysis of all propagators in Wheel."""
 
         print("\n" + "═" * 64)
-        print("  PROPAGATORY FEYNMANA — Analiza Wheel Algebra")
+        print("  FEYNMAN PROPAGATORS — Wheel Algebra Analysis")
         print("═" * 64)
 
         cases = [
-            ("Skalarny  D_F(p) = 1/(p²-m²)",
+            ("Scalar  D_F(p) = 1/(p²-m²)",
              self.scalar_propagator(),
              [(p, m), (p, -m), (p, sp.S.Zero)]),
 
-            ("Fermionowy S_F(p) = (p+m_e)/(p²-m_e²)",
+            ("Fermion S_F(p) = (p+m_e)/(p²-m_e²)",
              self.fermion_propagator(),
              [(p, m_e), (p, -m_e)]),
 
-            ("Fotonowy  D_F(k) = 1/k²",
+            ("Photon  D_F(k) = 1/k²",
              self.photon_propagator(),
              [(k, sp.S.Zero)]),
         ]
@@ -120,186 +120,186 @@ class FeynmanPropagators:
                     sp.limit(expr, var, val) if not w_result.is_bottom else "∞"
                 )
                 label = f"{var}={val}"
-                status = "⊥  ← biegun (on-shell)" if w_result.is_bottom else str(w_result)
+                status = "⊥  ← pole (on-shell)" if w_result.is_bottom else str(w_result)
                 print(f"  {label:<12} Wheel: {status}")
 
-            # Rozwinięcie w szereg Laurenta wokół bieguna
+            # Laurent series expansion around the pole
             main_var, pole_val = test_pts[0]
             analysis = wheel_series_around(expr, main_var, pole_val)
-            print(f"\n  Laurent wokół bieguna ({main_var}={pole_val}):")
-            print(f"    {analysis.get('laurent_series', 'brak')}")
-            print(f"    Granica (+): {analysis['limit_from_right']}")
-            print(f"    Granica (-): {analysis['limit_from_left']}")
+            print(f"\n  Laurent around the pole ({main_var}={pole_val}):")
+            print(f"    {analysis.get('laurent_series', 'none')}")
+            print(f"    Limit (+): {analysis['limit_from_right']}")
+            print(f"    Limit (-): {analysis['limit_from_left']}")
 
-        # Recepta Feynmana vs Wheel
+        # Feynman prescription vs Wheel
         print("\n" + "─" * 64)
-        print("  RECEPTA FEYNMANA vs WHEEL ALGEBRA\n")
-        print("  Klasyczna QFT:  1/(p²-m²+iε)  — przesuń biegun w zespolone")
-        print("  Wheel Algebra:  1/(p²-m²) przy p=m  →  ⊥")
+        print("  FEYNMAN PRESCRIPTION vs WHEEL ALGEBRA\n")
+        print("  Classical QFT:  1/(p²-m²+iε)  — shift pole into complex plane")
+        print("  Wheel Algebra:  1/(p²-m²) at p=m  →  ⊥")
         print()
-        print("  Interpretacja:")
-        print("  • Recepta iε to matematyczny trik omijający biegun")
-        print("  • Wheel nie omija — przechodzi PRZEZ biegun, wynik: ⊥")
-        print("  • ⊥ może być naturalnym odpowiednikiem 'cząstka jest")
-        print("    rzeczywiście na powłoce masy' — stan fizycznie wyróżniony")
+        print("  Interpretation:")
+        print("  • iε prescription is a mathematical trick to bypass the pole")
+        print("  • Wheel does not bypass — passes THROUGH the pole, result: ⊥")
+        print("  • ⊥ might be a natural equivalent of 'particle is")
+        print("    actually on the mass shell' — a physically distinguished state")
         print()
-        print("  Hipoteza: ⊥ w propagatorze = asymptotyczny stan cząstkowy")
-        print("            (to czego szukamy w macierzy S)")
+        print("  Hypothesis: ⊥ in the propagator = asymptotic particle state")
+        print("              (what we look for in the S-matrix)")
 
 
-# ─── 2. Dywergencje UV i renormalizacja ──────────────────────────────────────
+# ─── 2. UV Divergences and Renormalization ────────────────────────────────────
 
 class UVDivergences:
     """
-    Dywergencje ultraviolet w QED.
+    Ultraviolet divergences in QED.
 
-    W perturbacyjnej QED całki pętlowe dywergują przy wysokich
-    impulsach (k → ∞). Renormalizacja systematycznie usuwa
-    te nieskończoności przez redefinicję stałych.
+    In perturbative QED, loop integrals diverge at high
+    momenta (k → ∞). Renormalization systematically removes
+    these infinities by redefining constants.
 
-    Pytanie Wheel: czy wprowadzenie ⊥ zamiast ∞ zmienia ten obraz?
+    Wheel Question: does introducing ⊥ instead of ∞ change this picture?
     """
 
     def self_energy_integrand(self) -> sp.Basic:
         """
-        Podcałkowa samoenergii elektronu Σ(p):
+        Integrand of electron self-energy Σ(p):
 
           Σ(p) ~ ∫ d⁴k / [k²(k-p)² - m²]
 
-        Uproszczona forma podcałkowej (po śladzie spinorowym):
-          f(k) = 1 / (k² - Lambda_uv²)    ← z regularyzacją cut-off
+        Simplified integrand form (after spinor trace):
+          f(k) = 1 / (k² - Lambda_uv²)    ← with cut-off regularization
 
-        Dywerguje gdy k → ∞ (UV) lub k → 0 (IR)
+        Diverges as k → ∞ (UV) or k → 0 (IR)
         """
         return sp.Integer(1) / (k**2 - Lambda_uv**2)
 
     def vacuum_polarization_integrand(self) -> sp.Basic:
         """
-        Podcałkowa polaryzacji próżni Π(q²):
+        Integrand of vacuum polarization Π(q²):
 
           Π(q²) ~ ∫₀¹ dx · x(1-x) · log[m² - x(1-x)q²]
 
-        Dywergencja logarytmiczna przy Lambda_uv → ∞.
-        Uproszczona forma:
+        Logarithmic divergence as Lambda_uv → ∞.
+        Simplified form:
           f(Lambda) = log(Lambda_uv² / m_e²)
         """
         return sp.log(Lambda_uv**2 / m_e**2)
 
     def running_coupling(self) -> sp.Basic:
         """
-        Bieżąca stała sprzężenia α(μ) w QED:
+        Running coupling constant α(μ) in QED:
 
           1/α(μ) = 1/α₀ - (1/3π) log(μ²/m_e²)
 
-        Landau pole: α → ∞ gdy μ → μ_L
-        (w QED niefizyczne bo μ_L ~ exp(137π) ≫ M_Planck)
+        Landau pole: α → ∞ as μ → μ_L
+        (unphysical in QED because μ_L ~ exp(137π) ≫ M_Planck)
         """
         alpha_0 = sp.Rational(1, 137)
         return alpha_0 / (1 - alpha_0 * sp.log(mu_r**2 / m_e**2) / (3 * sp.pi))
 
     def analyse_divergences(self) -> None:
-        """Analiza dywergencji QED w Wheel."""
+        """Analysis of QED divergences in Wheel."""
 
         print("\n" + "═" * 64)
-        print("  DYWERGENCJE QED — Renormalizacja vs Wheel")
+        print("  QED DIVERGENCES — Renormalization vs Wheel")
         print("═" * 64)
 
-        # ── Samoenergia z cut-off
-        print("\n▶  Samoenergia elektronu Σ ~ 1/(k²-Λ²)\n")
+        # ── Self-energy with cut-off
+        print("\n▶  Electron self-energy Σ ~ 1/(k²-Λ²)\n")
         se = self.self_energy_integrand()
 
-        # Dywergencja UV: k → ∞
+        # UV Divergence: k → ∞
         lim_inf = sp.limit(se, k, sp.oo)
-        print(f"  Podcałkowa f(k) = {se}")
-        print(f"  lim(k→∞) = {lim_inf}   (brak dywergencji UV w podcałkowej)")
-        print(f"  Wheel(k=Λ) = {wheel_subs(se, {k: Lambda_uv})}  ← biegun przy k=Λ")
+        print(f"  Integrand f(k) = {se}")
+        print(f"  lim(k→∞) = {lim_inf}   (no UV divergence in the integrand)")
+        print(f"  Wheel(k=Λ) = {wheel_subs(se, {k: Lambda_uv})}  ← pole at k=Λ")
         print(f"  Wheel(k=0) = {wheel_subs(se, {k: sp.S.Zero})}")
         print()
-        print("  Uwaga: dywergencja UV pochodzi z CAŁKOWANIA do ∞,")
-        print("  nie z pojedynczej wartości. Wheel operuje punktowo.")
+        print("  Note: UV divergence comes from INTEGRATION to ∞,")
+        print("  not from a single value. Wheel operates pointwise.")
 
-        # ── Polaryzacja próżni
-        print("\n▶  Polaryzacja próżni Π ~ log(Λ²/m²)\n")
+        # ── Vacuum polarization
+        print("\n▶  Vacuum polarization Π ~ log(Λ²/m²)\n")
         vp = self.vacuum_polarization_integrand()
         print(f"  Π ~ {vp}")
 
         lim_vp = sp.limit(vp, Lambda_uv, sp.oo)
-        print(f"  lim(Λ→∞) = {lim_vp}   (dywergencja logarytmiczna)")
+        print(f"  lim(Λ→∞) = {lim_vp}   (logarithmic divergence)")
 
-        # W Wheel: Λ→∞ to nie jest /0 — to jest *0
-        # log(∞) = ∞, ale Wheel traktuje ∞ jako ⊥
+        # In Wheel: Λ→∞ is not /0 — it is *0
+        # log(∞) = ∞, but Wheel treats ∞ as ⊥
         w_vp_inf = wheel_subs(vp, {Lambda_uv: sp.oo})
         print(f"  Wheel(Λ=∞) = {w_vp_inf}")
         print()
-        print("  Kluczowe spostrzeżenie:")
-        print("  Dywergencja log → ⊥ w Wheel gdy Λ → ∞")
-        print("  Renormalizacja zastępuje Λ przez μ (skala obserwacji)")
-        print("  W Wheel: Λ=⊥ propaguje przez całe wyrażenie")
+        print("  Key observation:")
+        print("  Log divergence → ⊥ in Wheel as Λ → ∞")
+        print("  Renormalization replaces Λ with μ (observation scale)")
+        print("  In Wheel: Λ=⊥ propagates through the entire expression")
 
         # ── Landau pole
-        print("\n▶  Landau Pole — bieżąca stała sprzężenia α(μ)\n")
+        print("\n▶  Landau Pole — running coupling constant α(μ)\n")
         rc = self.running_coupling()
         print(f"  α(μ) = {rc}")
 
-        # Szukaj bieguna
+        # Search for the pole
         mu_L_eq = sp.solve(
             1 - sp.Rational(1, 137) * sp.log(mu_r**2 / m_e**2) / (3*sp.pi),
             mu_r
         )
         print(f"  Landau pole: μ_L = m_e · exp(3π·137) ≈ 10^(280) GeV")
-        print(f"  (niefizyczne — poza wszelkimi skalami energii)")
+        print(f"  (unphysical — beyond all energy scales)")
         print()
         w_landau = wheel_subs(rc, {mu_r: m_e * sp.exp(3 * sp.pi * 137)})
-        print(f"  Wheel(μ=μ_L) = {w_landau}  ← ⊥ potwierdza biegun")
+        print(f"  Wheel(μ=μ_L) = {w_landau}  ← ⊥ confirms the pole")
 
-        # ── Główna teza
+        # ── Main thesis
         print("\n" + "─" * 64)
-        print("  WHEEL vs RENORMALIZACJA — Analiza\n")
-        print("  Renormalizacja (klasyczna droga):")
-        print("  1. Oblicz amplitudę z Λ jako regulatorem")
-        print("  2. Amplituda = skończone + dywergentne(Λ)")
-        print("  3. Zredefiniuj stałe: m₀→m+δm, e₀→e+δe (kontrterminy)")
-        print("  4. δm, δe zawierają Λ i kasują dywergencje")
-        print("  5. Wynik: przewidywania skończone, zgodne z eksperymentem")
+        print("  WHEEL vs RENORMALIZATION — Analysis\n")
+        print("  Renormalization (classical path):")
+        print("  1. Compute amplitude with Λ as regulator")
+        print("  2. Amplitude = finite + divergent(Λ)")
+        print("  3. Redefine constants: m₀→m+δm, e₀→e+δe (counterterms)")
+        print("  4. δm, δe contain Λ and cancel the divergences")
+        print("  5. Result: finite predictions, consistent with experiment")
         print()
-        print("  Wheel (alternatywna droga — hipoteza):")
-        print("  1. Oblicz amplitudę — dywergencje → ⊥")
-        print("  2. ⊥ propaguje przez wyrażenie")
-        print("  3. ??? — tu potrzebna nowa interpretacja fizyczna")
+        print("  Wheel (alternative path — hypothesis):")
+        print("  1. Compute amplitude — divergences → ⊥")
+        print("  2. ⊥ propagates through the expression")
+        print("  3. ??? — physical interpretation needed here")
         print()
         print("  ┌─────────────────────────────────────────────────────┐")
-        print("  │ WNIOSEK (tymczasowy):                               │")
-        print("  │  Wheel NIE eliminuje automatycznie renormalizacji.   │")
-        print("  │  Zamiast tego: identyfikuje DOKŁADNIE gdzie i       │")
-        print("  │  dlaczego dywergencje się pojawiają.                │")
+        print("  │ CONCLUSION (provisional):                           │")
+        print("  │  Wheel does NOT automatically eliminate             │")
+        print("  │  renormalization. Instead, it identifies EXACTLY    │")
+        print("  │  where and why divergences appear.                  │")
         print("  │                                                      │")
-        print("  │  Otwarte pytanie: czy algebra ⊥ może zastąpić       │")
-        print("  │  kontrterminy jako naturalny mechanizm regulacji?   │")
+        print("  │  Open question: can the algebra of ⊥ replace        │")
+        print("  │  counterterms as a natural regulation mechanism?    │")
         print("  └─────────────────────────────────────────────────────┘")
 
 
-# ─── 3. Równanie Diraca ───────────────────────────────────────────────────────
+# ─── 3. Dirac Equation ────────────────────────────────────────────────────────
 
 class DiracEquation:
     """
-    Równanie Diraca: (iγ^μ∂_μ - m)ψ = 0
+    Dirac Equation: (iγ^μ∂_μ - m)ψ = 0
 
-    W przestrzeni pędów (po transformacji Fouriera):
+    In momentum space (after Fourier transform):
       (p̸ - m)ψ = 0
 
-    Dla m=0 (neutrina, bezmasowe fermiony):
+    For m=0 (neutrinos, massless fermions):
       p̸ ψ = 0
 
-    Propagator fermionowy przy m=0:
-      S_F(p) = p̸/p²  — osobliwość przy p=0!
+    Fermion propagator at m=0:
+      S_F(p) = p̸/p²  — singularity at p=0!
     """
 
     def massless_propagator(self) -> sp.Basic:
-        """Propagator bezmasowego fermiona: S_F ~ p/p² = 1/p."""
-        return p / p**2   # uproszczenie: p̸ → p
+        """Massless fermion propagator: S_F ~ p/p² = 1/p."""
+        return p / p**2   # simplification: p̸ → p
 
     def massive_propagator_at_pole(self) -> dict:
-        """Analizuje biegun propagatora fermionowego przy różnych masach."""
+        """Analyzes the fermion propagator pole at various masses."""
         results = {}
         for mass_val in [sp.S.Zero, m_e, sp.oo]:
             prop = (p + mass_val) / (p**2 - mass_val**2) if mass_val != 0 else 1/p
@@ -313,47 +313,47 @@ class DiracEquation:
         return results
 
     def analyse_dirac(self) -> None:
-        """Analiza równania Diraca w Wheel."""
+        """Analysis of the Dirac equation in Wheel."""
 
         print("\n" + "═" * 64)
-        print("  RÓWNANIE DIRACA — Bezmasowe fermiony w Wheel")
+        print("  DIRAC EQUATION — Massless fermions in Wheel")
         print("═" * 64)
 
-        # ── Bezmasowy propagator
-        print("\n▶  Propagator bezmasowy S_F ~ 1/p\n")
+        # ── Massless propagator
+        print("\n▶  Massless propagator S_F ~ 1/p\n")
         mp = self.massless_propagator()
         print(f"  S_F(p) = {mp} = {sp.simplify(mp)}")
         print(f"  Wheel(p=0) = {wheel_subs(sp.simplify(mp), {p: sp.S.Zero})}")
 
         analysis = wheel_series_around(sp.Integer(1)/p, p, sp.S.Zero)
-        print(f"\n  Granica (+): {analysis['limit_from_right']}")
-        print(f"  Granica (-): {analysis['limit_from_left']}")
-        print(f"  Laurent    : {analysis.get('laurent_series', 'brak')}")
+        print(f"\n  Limit (+): {analysis['limit_from_right']}")
+        print(f"  Limit (-): {analysis['limit_from_left']}")
+        print(f"  Laurent  : {analysis.get('laurent_series', 'none')}")
 
         print()
-        print("  Interpretacja Wheel:")
-        print("  • m=0 → biegun propagatora przy p=0")
-        print("  • Klasycznie: S_F(0) = ∞ (problem IR)")
+        print("  Wheel interpretation:")
+        print("  • m=0 → propagator pole at p=0")
+        print("  • Classically: S_F(0) = ∞ (IR problem)")
         print("  • Wheel: S_F(0) = ⊥")
-        print("  • p=0 to foton/gluon/neutryno w stanie spoczynku —")
-        print("    stan fizycznie niedostępny dla bezmasowych cząstek!")
+        print("  • p=0 is a photon/gluon/neutrino at rest —")
+        print("    a state physically unattainable for massless particles!")
 
-        # ── Porównanie mas
-        print("\n▶  Propagator fermionowy przy różnych masach\n")
+        # ── Mass comparison
+        print("\n▶  Fermion propagator at different masses\n")
         results = self.massive_propagator_at_pole()
         for mass_str, data in results.items():
             pole_val = mass_str if mass_str != "oo" else "∞"
             w = data["wheel_at_pole"]
             print(f"  m={mass_str:<6} → Wheel(p=m) = {w}")
 
-        # ── Chiralność i m=0
-        print("\n▶  Chiralność i granica m→0\n")
-        print("  Dla m=0 równanie Diraca rozpada się na dwa niezależne:")
-        print("  • Leworęczne: iσ^μ∂_μ ψ_L = 0  (Weyl)")
-        print("  • Praworęczne: iσ̄^μ∂_μ ψ_R = 0  (Weyl)")
+        # ── Chirality and m=0
+        print("\n▶  Chirality and the limit m→0\n")
+        print("  For m=0 the Dirac equation splits into two independent ones:")
+        print("  • Left-handed: iσ^μ∂_μ ψ_L = 0  (Weyl)")
+        print("  • Right-handed: iσ̄^μ∂_μ ψ_R = 0  (Weyl)")
         print()
 
-        # Propagator masowy w granicy m→0
+        # Massive propagator in the limit m→0
         prop_massive = (p + m_e) / (p**2 - m_e**2)
         prop_massive_simplified = sp.simplify(prop_massive)
         print(f"  S_F(p,m) = {prop_massive_simplified}")
@@ -362,31 +362,31 @@ class DiracEquation:
         print(f"  lim(m→0) S_F = {lim_m0}")
         print(f"  Wheel(m=0, p=0) = {wheel_subs(lim_m0, {p: sp.S.Zero})}")
         print()
-        print("  Wniosek: granica m→0 jest regularna wszędzie POZA p=0.")
-        print("  Wheel wskazuje p=0 jako jedyną prawdziwą IR-osobliwość.")
+        print("  Conclusion: limit m→0 is regular everywhere EXCEPT p=0.")
+        print("  Wheel points out p=0 as the only true IR-singularity.")
 
 
-# ─── 4. Relacja dyspersji i powłoka masy ─────────────────────────────────────
+# ─── 4. Dispersion Relation and Mass Shell ────────────────────────────────────
 
 class DispersionRelation:
     """
-    Relacja dyspersji relativistycznej:
+    Relativistic dispersion relation:
       E² = (pc)² + (mc²)²
 
-    'On-shell': p² = m²c² (w jednostkach c=1: p² = m²)
-    'Off-shell': p² ≠ m²  (cząstki wirtualne w diagramach Feynmana)
+    'On-shell': p² = m²c² (in units c=1: p² = m²)
+    'Off-shell': p² ≠ m²  (virtual particles in Feynman diagrams)
 
-    W Wheel: propagator 1/(p²-m²) ma ⊥ dokładnie on-shell.
+    In Wheel: propagator 1/(p²-m²) yields ⊥ exactly on-shell.
     """
 
     def analyse_on_shell(self) -> None:
         print("\n" + "═" * 64)
-        print("  RELACJA DYSPERSJI — On-shell vs Off-shell w Wheel")
+        print("  DISPERSION RELATION — On-shell vs Off-shell in Wheel")
         print("═" * 64)
 
         prop = sp.Integer(1) / (p**2 - m**2)
 
-        print("\n▶  Propagator 1/(p²-m²) w funkcji p (przy m=1)\n")
+        print("\n▶  Propagator 1/(p²-m²) as a function of p (at m=1)\n")
 
         test_vals = [
             (sp.Rational(-3, 2), "off-shell (p=-3/2)"),
@@ -400,33 +400,33 @@ class DispersionRelation:
 
         for val, label in test_vals:
             w = wheel_subs(prop, {p: val, m: sp.Integer(1)})
-            marker = "  ←  BIEGUN" if w.is_bottom else ""
+            marker = "  ←  POLE" if w.is_bottom else ""
             print(f"  {label}: {str(w):<20}{marker}")
 
         print()
-        print("  Interpretacja Wheel:")
-        print("  • Off-shell (cząstki wirtualne): propagator skończony")
-        print("  • On-shell  (cząstki rzeczywiste): propagator = ⊥")
+        print("  Wheel interpretation:")
+        print("  • Off-shell (virtual particles): finite propagator")
+        print("  • On-shell  (real particles): propagator = ⊥")
         print()
         print("  ┌─────────────────────────────────────────────────────┐")
-        print("  │ Prowokacyjna hipoteza:                               │")
-        print("  │  ⊥ w propagatorze = cząstka jest RZECZYWIŚCIE       │")
-        print("  │  obserwowalna (on-shell = detektor ją 'widzi').      │")
+        print("  │ Provocative hypothesis:                              │")
+        print("  │  ⊥ in propagator = particle is ACTUALLY              │")
+        print("  │  observable (on-shell = the detector 'sees' it).     │")
         print("  │                                                      │")
-        print("  │  Macierz S łączy stany asymptotyczne (on-shell).    │")
-        print("  │  Wheel automatycznie zaznacza te stany przez ⊥.     │")
+        print("  │  The S-matrix connects asymptotic states (on-shell). │")
+        print("  │  Wheel automatically marks these states with ⊥.      │")
         print("  │                                                      │")
-        print("  │  Pytanie: czy ⊥ może być algebraiczną definicją     │")
-        print("  │  'obserwowalności' w QFT?                           │")
+        print("  │  Question: can ⊥ be an algebraic definition          │")
+        print("  │  of 'observability' in QFT?                          │")
         print("  └─────────────────────────────────────────────────────┘")
 
 
-# ─── Główna analiza ───────────────────────────────────────────────────────────
+# ─── Main analysis ────────────────────────────────────────────────────────────
 
 def run_quantum_analysis() -> None:
     print("\n" + "█" * 64)
-    print("  WHEELPHYSICS — Mechanika Kwantowa i QED")
-    print("  Dywergencje, propagatory, renormalizacja")
+    print("  WHEELPHYSICS — Quantum Mechanics and QED")
+    print("  Divergences, propagators, renormalization")
     print("█" * 64)
 
     FeynmanPropagators().analyse_all()
@@ -434,45 +434,45 @@ def run_quantum_analysis() -> None:
     DiracEquation().analyse_dirac()
     DispersionRelation().analyse_on_shell()
 
-    # ── Syntetyczne podsumowanie badawcze
+    # ── Synthetic research summary
     print("\n" + "═" * 64)
-    print("  PODSUMOWANIE BADAWCZE — QFT × Wheel")
+    print("  RESEARCH SUMMARY — QFT × Wheel")
     print("═" * 64)
 
     print("""
-  WYNIK 1: Propagatory i bieguny
+  RESULT 1: Propagators and poles
   ─────────────────────────────
-  Każdy propagator Feynmana ma biegun on-shell → ⊥ w Wheel.
-  Recepta iε (Feynman prescription) to klasyczny trik omijający
-  ten biegun w zespolonej płaszczyźnie. Wheel zamiast omijać —
-  przechodzi przez biegun i zwraca ⊥.
+  Every Feynman propagator has an on-shell pole → ⊥ in Wheel.
+  The iε prescription (Feynman prescription) is a classical trick bypassing
+  this pole in the complex plane. Wheel instead of bypassing —
+  passes through the pole and returns ⊥.
 
-  Czy ⊥ jest naturalniejszym opisem stanu on-shell niż granica ε→0?
+  Is ⊥ a more natural description of an on-shell state than the limit ε→0?
 
-  WYNIK 2: Dywergencje UV
+  RESULT 2: UV Divergences
   ──────────────────────
-  Dywergencje UV (Λ→∞) dają ⊥ gdy traktujemy Λ jako argument.
-  Wheel NIE eliminuje renormalizacji automatycznie — dywergencje
-  są w CAŁKACH, nie w pojedynczych wartościach.
+  UV divergences (Λ→∞) yield ⊥ when treating Λ as an argument.
+  Wheel does NOT eliminate renormalization automatically — divergences
+  are in INTEGRALS, not in single values.
   
-  Ale: Wheel precyzyjnie lokalizuje SKĄD pochodzi każda dywergencja.
-  To może być narzędzie diagnostyczne dla teorii regularyzacji.
+  But: Wheel precisely locates WHERE each divergence comes from.
+  This could be a diagnostic tool for regularization theory.
 
-  WYNIK 3: Równanie Diraca m=0
+  RESULT 3: Dirac Equation m=0
   ────────────────────────────
-  Propagator bezmasowy 1/p → ⊥ przy p=0.
-  Fizycznie: bezmasowa cząstka nie może mieć p=0 (relatywistycznie).
-  Wheel algebraicznie zakazuje tego stanu — poprawnie!
+  Massless propagator 1/p → ⊥ at p=0.
+  Physically: massless particle cannot have p=0 (relativistically).
+  Wheel algebraically forbids this state — correctly!
 
-  WYNIK 4: On-shell = ⊥  (najbardziej prowokacyjny wynik)
+  RESULT 4: On-shell = ⊥  (most provocative result)
   ────────────────────────────────────────────────────────
-  Cząstki wirtualne (off-shell): propagator skończony → obliczalny
-  Cząstki rzeczywiste (on-shell): propagator = ⊥ → 'poza algebrą'
+  Virtual particles (off-shell): finite propagator → computable
+  Real particles (on-shell): propagator = ⊥ → 'outside algebra'
   
-  W QFT cząstki wirtualne NIE są obserwowalne.
-  Cząstki on-shell SĄ obserwowalne.
+  In QFT virtual particles are NOT observable.
+  On-shell particles ARE observable.
   
-  Wheel algebraicznie oddziela te dwie klasy przez ⊥.
+  Wheel algebraically separates these two classes via ⊥.
   """)
 
 

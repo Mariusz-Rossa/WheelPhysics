@@ -2,27 +2,27 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-WheelNumber — implementacja algebry koła (Wheel Algebra)
-Oparty na: Carlström (2004) "Wheels — On Division by Zero"
+WheelNumber — Wheel Algebra implementation
+Based on: Carlström (2004) "Wheels — On Division by Zero"
 
-Wheel Algebra rozszerza pierścień o dwa nowe elementy:
-  - ⊥ (bottom/absurd) — wynik operacji niezdefiniowanych
-  - /0 → ⊥ (zamiast błędu)
+Wheel Algebra extends a ring with two new elements:
+  - ⊥ (bottom/absurd) — result of undefined operations
+  - /0 → ⊥ (instead of an error)
 
-Aksjomaty koła:
+Wheel axioms:
   (1)  x + y = y + x
   (2)  (x + y) + z = x + (y + z)
   (3)  x + 0 = x
   (4)  x * y = y * x
   (5)  (x * y) * z = x * (y * z)
   (6)  x * 1 = x
-  (7)  x * (y + z) = x*y + x*z  [!] NIE zawsze — patrz reguła ⊥
+  (7)  x * (y + z) = x*y + x*z  [!] NOT always — see ⊥ rule
   (8)  /(/x) = x
-  (9)  x * /x = 1  (gdy x ≠ 0 i x ≠ ⊥)
-  (10) 0 * /0 = ⊥  (kluczowy aksjomat)
+  (9)  x * /x = 1  (when x ≠ 0 and x ≠ ⊥)
+  (10) 0 * /0 = ⊥  (key axiom)
   (11) ⊥ + x = ⊥
   (12) ⊥ * x = ⊥
-  (13) /(x + y*⊥) = /x  [rzut przez ⊥]
+  (13) /(x + y*⊥) = /x  [projection through ⊥]
 """
 
 from __future__ import annotations
@@ -30,10 +30,10 @@ from typing import Union
 import sympy as sp
 
 
-# ─── Sentinel dla elementu ⊥ ──────────────────────────────────────────────────
+# ─── Sentinel for the ⊥ element ───────────────────────────────────────────────
 
 class _BottomType:
-    """Singleton reprezentujący element ⊥ (bottom) algebry koła."""
+    """Singleton representing the ⊥ (bottom) element of wheel algebra."""
     _instance = None
 
     def __new__(cls):
@@ -54,7 +54,7 @@ class _BottomType:
         return hash("__wheel_bottom__")
 
 
-BOTTOM = _BottomType()   # jedyna instancja ⊥
+BOTTOM = _BottomType()   # the sole instance of ⊥
 
 
 # ─── WheelNumber ──────────────────────────────────────────────────────────────
@@ -64,13 +64,13 @@ WheelValue = Union[int, float, sp.Basic, _BottomType, "WheelNumber"]
 
 class WheelNumber:
     """
-    Element algebry koła.
+    Wheel algebra element.
 
-    Wartość wewnętrzna to:
-      - sp.Basic  (wyrażenie SymPy — symboliczne lub numeryczne)
-      - BOTTOM    (element absurdalny ⊥)
+    The internal value is:
+      - sp.Basic  (SymPy expression — symbolic or numeric)
+      - BOTTOM    (the absurd element ⊥)
 
-    Przykłady:
+    Examples:
         >>> w = WheelNumber(3)
         >>> w / WheelNumber(0)
         WheelNumber(⊥)
@@ -80,7 +80,7 @@ class WheelNumber:
 
     __slots__ = ("_val",)
 
-    # ── Konstruktor ──────────────────────────────────────────────────────────
+    # ── Constructor ──────────────────────────────────────────────────────────
 
     def __init__(self, value: WheelValue = 0):
         if isinstance(value, WheelNumber):
@@ -92,9 +92,9 @@ class WheelNumber:
         elif isinstance(value, sp.Basic):
             self._val = value
         else:
-            raise TypeError(f"Nieobsługiwany typ: {type(value)}")
+            raise TypeError(f"Unsupported type: {type(value)}")
 
-    # ── Właściwości ──────────────────────────────────────────────────────────
+    # ── Properties ───────────────────────────────────────────────────────────
 
     @property
     def is_bottom(self) -> bool:
@@ -113,7 +113,7 @@ class WheelNumber:
     def value(self):
         return self._val
 
-    # ── Reprezentacja ────────────────────────────────────────────────────────
+    # ── Representation ───────────────────────────────────────────────────────
 
     def __repr__(self) -> str:
         return f"WheelNumber({self._val})"
@@ -121,15 +121,15 @@ class WheelNumber:
     def __str__(self) -> str:
         return str(self._val)
 
-    # ── Inwersja multiplikatywna /x ──────────────────────────────────────────
+    # ── Multiplicative inversion /x ──────────────────────────────────────────
 
     def wheel_inv(self) -> "WheelNumber":
         """
-        Inwersja koła: /x
-          /0   = ⊥     (aksjomat: 0 * /0 = ⊥)
-          /⊥   = ⊥     (absurd propaguje)
-          /(/x) = x    (podwójna inwersja)
-          /x   = 1/x   (dla x ≠ 0, x ≠ ⊥)
+        Wheel inversion: /x
+          /0   = ⊥     (axiom: 0 * /0 = ⊥)
+          /⊥   = ⊥     (absurd propagates)
+          /(/x) = x    (double inversion)
+          /x   = 1/x   (for x ≠ 0, x ≠ ⊥)
         """
         if self.is_bottom:
             return WheelNumber(BOTTOM)
@@ -140,11 +140,11 @@ class WheelNumber:
         except Exception:
             return WheelNumber(BOTTOM)
 
-    # ── Operatory arytmetyczne ────────────────────────────────────────────────
+    # ── Arithmetic operators ──────────────────────────────────────────────────
 
     def __add__(self, other: WheelValue) -> "WheelNumber":
         other = _coerce(other)
-        # Aksjomat (11): ⊥ + x = ⊥
+        # Axiom (11): ⊥ + x = ⊥
         if self.is_bottom or other.is_bottom:
             return WheelNumber(BOTTOM)
         try:
@@ -169,7 +169,7 @@ class WheelNumber:
 
     def __mul__(self, other: WheelValue) -> "WheelNumber":
         other = _coerce(other)
-        # Aksjomat (12): ⊥ * x = ⊥
+        # Axiom (12): ⊥ * x = ⊥
         if self.is_bottom or other.is_bottom:
             return WheelNumber(BOTTOM)
         try:
@@ -183,10 +183,10 @@ class WheelNumber:
 
     def __truediv__(self, other: WheelValue) -> "WheelNumber":
         """
-        Dzielenie w kole: x / y = x * /y
-        Kluczowe przypadki:
-          x / 0  = x * /0 = x * ⊥ = ⊥   (dla x ≠ 0)
-          0 / 0  = 0 * /0 = 0 * ⊥ = ⊥   (aksjomat 10)
+        Wheel division: x / y = x * /y
+        Key cases:
+          x / 0  = x * /0 = x * ⊥ = ⊥   (for x ≠ 0)
+          0 / 0  = 0 * /0 = 0 * ⊥ = ⊥   (axiom 10)
           x / ⊥  = ⊥
         """
         other = _coerce(other)
@@ -197,8 +197,8 @@ class WheelNumber:
 
     def __pow__(self, exp: WheelValue) -> "WheelNumber":
         """
-        Potęgowanie — rozszerzenie poza standardowy aksjomat.
-        x^0 = 1 (nawet dla x=0, zgodnie z konwencją koła)
+        Exponentiation — extension beyond standard axioms.
+        x^0 = 1 (even for x=0, according to wheel convention)
         ⊥^n = ⊥
         """
         exp = _coerce(exp)
@@ -208,14 +208,14 @@ class WheelNumber:
             return WheelNumber(BOTTOM)
         try:
             result = sp.simplify(self._val ** exp._val)
-            # Sprawdź czy SymPy zwrócił nieskończoność
+            # Check if SymPy returned infinity
             if result in (sp.oo, sp.zoo, sp.nan, -sp.oo):
                 return WheelNumber(BOTTOM)
             return WheelNumber(result)
         except Exception:
             return WheelNumber(BOTTOM)
 
-    # ── Porównania ────────────────────────────────────────────────────────────
+    # ── Comparisons ───────────────────────────────────────────────────────────
 
     def __eq__(self, other) -> bool:
         other = _coerce(other)
@@ -231,10 +231,10 @@ class WheelNumber:
     def __hash__(self) -> int:
         return hash(self._val)
 
-    # ── Konwersja numeryczna ──────────────────────────────────────────────────
+    # ── Numeric conversion ────────────────────────────────────────────────────
 
     def to_float(self) -> float | None:
-        """Próba konwersji do float. Zwraca None dla ⊥."""
+        """Attempt to convert to float. Returns None for ⊥."""
         if self.is_bottom:
             return None
         try:
@@ -243,7 +243,7 @@ class WheelNumber:
             return None
 
     def evalf(self, n: int = 15) -> "WheelNumber":
-        """Numeryczna ewaluacja (jak SymPy .evalf())."""
+        """Numeric evaluation (like SymPy .evalf())."""
         if self.is_bottom:
             return self
         try:
@@ -255,34 +255,34 @@ class WheelNumber:
             return WheelNumber(BOTTOM)
 
 
-# ─── Pomocnicze ───────────────────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _coerce(val: WheelValue) -> WheelNumber:
-    """Konwertuje dowolną wartość do WheelNumber."""
+    """Converts any value to a WheelNumber."""
     if isinstance(val, WheelNumber):
         return val
     return WheelNumber(val)
 
 
 def W(value: WheelValue) -> WheelNumber:
-    """Skrócony konstruktor — W(3), W(sp.Symbol('r')), W(BOTTOM)."""
+    """Shortcut constructor — W(3), W(sp.Symbol('r')), W(BOTTOM)."""
     return WheelNumber(value)
 
 
-# ─── Testy jednostkowe (uruchom: python wheel_number.py) ─────────────────────
+# ─── Unit tests (run: python wheel_number.py) ────────────────────────────────
 
 if __name__ == "__main__":
     import sys
 
     print("=" * 60)
-    print("  WheelNumber — testy aksjomatów")
+    print("  WheelNumber — axioms tests")
     print("=" * 60)
 
     r = sp.Symbol("r", positive=True)
     x = sp.Symbol("x")
 
     tests = [
-        # (opis, wyrażenie, oczekiwany wynik)
+        # (description, expression, expected result)
         ("1 / 0  →  ⊥",           W(1) / W(0),              W(BOTTOM)),
         ("0 / 0  →  ⊥",           W(0) / W(0),              W(BOTTOM)),
         ("⊥ + 5  →  ⊥",           W(BOTTOM) + W(5),         W(BOTTOM)),
@@ -304,6 +304,6 @@ if __name__ == "__main__":
             passed += 1
         print(f"  {status}  {desc:<30}  got: {got}")
 
-    print(f"\n  Wynik: {passed}/{len(tests)} testów przeszło")
+    print(f"\n  Result: {passed}/{len(tests)} tests passed")
     print("=" * 60)
     sys.exit(0 if passed == len(tests) else 1)

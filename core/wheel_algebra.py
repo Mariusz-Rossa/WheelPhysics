@@ -2,21 +2,21 @@
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
-wheel_algebra.py — reguły algebry koła i przepisywanie wyrażeń
+wheel_algebra.py — wheel algebra rules and expression rewriting
 
-Implementuje formalne reguły przepisywania wyrażeń w algebrze koła,
-zgodnie z aksjomatami Carlströma (2004).
+Implements formal expression rewriting rules in wheel algebra,
+according to Carlström's (2004) axioms.
 
-Kluczowe reguły:
-  - Detekcja i propagacja ⊥
-  - Normalizacja wyrażeń wheel
-  - Redukcja form nieoznaczonych
-  - Reguły dla granic w stylu wheel
+Key rules:
+  - ⊥ detection and propagation
+  - Wheel expression normalization
+  - Reduction of indeterminate forms
+  - Rules for wheel-style limits
 
-Różnica od klasycznej algebry:
-  Klasyczna:  x*(y+z) = x*y + x*z          (zawsze)
-  Wheel:      x*(y+z) = x*y + x*z + 0*⊥   (gdy x, y, z ∉ {0, ⊥})
-              — rozdzielność NIE zachodzi dla 0 i ⊥
+Difference from classical algebra:
+  Classical:  x*(y+z) = x*y + x*z          (always)
+  Wheel:      x*(y+z) = x*y + x*z + 0*⊥   (when x, y, z ∉ {0, ⊥})
+              — distributivity does NOT hold for 0 and ⊥
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.wheel_number import WheelNumber, WheelValue, BOTTOM, W, _coerce
 
 
-# ─── Reguły przepisywania ─────────────────────────────────────────────────────
+# ─── Rewriting rules ──────────────────────────────────────────────────────────
 
 @dataclass
 class RewriteRule:
-    """Pojedyncza reguła przepisywania z opisem."""
+    """Single rewrite rule with description."""
     name: str
     description: str
     apply: Callable[[WheelNumber, Optional[WheelNumber]], Optional[WheelNumber]]
@@ -41,7 +41,7 @@ class RewriteRule:
 
 
 def _contains_infinity(expr) -> bool:
-    """Sprawdza czy wyrażenie zawiera zoo/oo/nan jako podwyrażenie."""
+    """Checks if the expression contains zoo/oo/nan as a subexpression."""
     if expr in (sp.oo, sp.zoo, sp.nan, -sp.oo):
         return True
     try:
@@ -53,15 +53,15 @@ def _contains_infinity(expr) -> bool:
 
 def _has_division_by_zero_at(expr: sp.Basic, substitutions: dict) -> bool:
     """
-    Sprawdza REKURENCYJNIE czy gdziekolwiek w wyrażeniu
-    pojawia się dzielenie przez zero po podstawieniu.
+    Checks RECURSIVELY if division by zero appears anywhere
+    in the expression after substitution.
 
-    SymPy może algebraicznie uprościć 1/(1-r_s/r) przy r=0 do 0,
-    tracąc informację o /r w środku. Ta funkcja chodzi po drzewie
-    wyrażenia i sprawdza każdy mianownik przed uproszczeniem.
+    SymPy can algebraically simplify 1/(1-r_s/r) at r=0 to 0,
+    losing the information about /r inside. This function walks
+    the expression tree and checks every denominator before simplification.
     """
     def walk(e) -> bool:
-        # Sprawdź mianownik tego podwyrażenia
+        # Check the denominator of this subexpression
         n, d = sp.fraction(e)
         if d != sp.S.One:
             d_sub = sp.simplify(d.subs(substitutions))
@@ -70,7 +70,7 @@ def _has_division_by_zero_at(expr: sp.Basic, substitutions: dict) -> bool:
             if _contains_infinity(d_sub):
                 return True
 
-        # Rekurencja po argumentach
+        # Recursion over arguments
         for arg in e.args:
             if walk(arg):
                 return True
@@ -83,49 +83,49 @@ def _has_division_by_zero_at(expr: sp.Basic, substitutions: dict) -> bool:
 
 class WheelAlgebra:
     """
-    System reguł algebry koła.
+    System of wheel algebra rules.
 
-    Użycie:
+    Usage:
         wa = WheelAlgebra()
         result = wa.simplify(expr)
-        wa.explain(expr)  # krok po kroku
+        wa.explain(expr)  # step-by-step
     """
 
     def __init__(self):
         self._rules = self._build_rules()
 
-    # ── Budowa reguł ─────────────────────────────────────────────────────────
+    # ── Rules construction ───────────────────────────────────────────────────
 
     def _build_rules(self) -> list[RewriteRule]:
         return [
             RewriteRule(
                 name="bottom_absorb_add",
-                description="⊥ + x = ⊥  (aksjomat 11)",
+                description="⊥ + x = ⊥  (axiom 11)",
                 apply=lambda a, b: W(BOTTOM) if (a.is_bottom or (b and b.is_bottom)) else None,
             ),
             RewriteRule(
                 name="bottom_absorb_mul",
-                description="⊥ * x = ⊥  (aksjomat 12)",
+                description="⊥ * x = ⊥  (axiom 12)",
                 apply=lambda a, b: W(BOTTOM) if (a.is_bottom or (b and b.is_bottom)) else None,
             ),
             RewriteRule(
                 name="zero_inv",
-                description="/0 = ⊥  (aksjomat 10: 0·/0 = ⊥)",
+                description="/0 = ⊥  (axiom 10: 0·/0 = ⊥)",
                 apply=lambda a, b: W(BOTTOM) if a.is_zero else None,
             ),
             RewriteRule(
                 name="double_inv",
-                description="/(/x) = x  (aksjomat 8)",
-                apply=lambda a, b: a,  # stosowane przez wheel_inv().wheel_inv()
+                description="/(/x) = x  (axiom 8)",
+                apply=lambda a, b: a,  # applied by wheel_inv().wheel_inv()
             ),
             RewriteRule(
                 name="bottom_inv",
-                description="/⊥ = ⊥  (⊥ jest absorbujące)",
+                description="/⊥ = ⊥  (⊥ is absorbing)",
                 apply=lambda a, b: W(BOTTOM) if a.is_bottom else None,
             ),
             RewriteRule(
                 name="zero_mul_bottom",
-                description="0 * ⊥ = ⊥  (nie 0!)",
+                description="0 * ⊥ = ⊥  (not 0!)",
                 apply=lambda a, b: W(BOTTOM) if (
                     a.is_zero and b and b.is_bottom or
                     a.is_bottom and b and b.is_zero
@@ -133,13 +133,13 @@ class WheelAlgebra:
             ),
         ]
 
-    # ── Operacje algebraiczne z śledzeniem ───────────────────────────────────
+    # ── Algebraic operations with tracking ───────────────────────────────────
 
     def add(self, a: WheelValue, b: WheelValue, trace: bool = False) -> WheelNumber:
         a, b = _coerce(a), _coerce(b)
         if a.is_bottom or b.is_bottom:
             if trace:
-                print(f"  ADD: ⊥ absorpcja → ⊥  [aksjomat 11]")
+                print(f"  ADD: ⊥ absorption → ⊥  [axiom 11]")
             return W(BOTTOM)
         result = a + b
         if trace:
@@ -150,7 +150,7 @@ class WheelAlgebra:
         a, b = _coerce(a), _coerce(b)
         if a.is_bottom or b.is_bottom:
             if trace:
-                print(f"  MUL: ⊥ absorpcja → ⊥  [aksjomat 12]")
+                print(f"  MUL: ⊥ absorption → ⊥  [axiom 12]")
             return W(BOTTOM)
         result = a * b
         if trace:
@@ -158,15 +158,15 @@ class WheelAlgebra:
         return result
 
     def inv(self, a: WheelValue, trace: bool = False) -> WheelNumber:
-        """Inwersja multiplikatywna /a."""
+        """Multiplicative inversion /a."""
         a = _coerce(a)
         if a.is_bottom:
             if trace:
-                print(f"  INV: /⊥ = ⊥  [⊥ absorpcja]")
+                print(f"  INV: /⊥ = ⊥  [⊥ absorption]")
             return W(BOTTOM)
         if a.is_zero:
             if trace:
-                print(f"  INV: /0 = ⊥  [aksjomat 10]")
+                print(f"  INV: /0 = ⊥  [axiom 10]")
             return W(BOTTOM)
         result = a.wheel_inv()
         if trace:
@@ -174,30 +174,30 @@ class WheelAlgebra:
         return result
 
     def div(self, a: WheelValue, b: WheelValue, trace: bool = False) -> WheelNumber:
-        """Dzielenie: a/b = a * /b."""
+        """Division: a/b = a * /b."""
         a, b = _coerce(a), _coerce(b)
         b_inv = self.inv(b, trace=trace)
         return self.mul(a, b_inv, trace=trace)
 
-    # ── Normalizacja wyrażenia ────────────────────────────────────────────────
+    # ── Expression normalization ──────────────────────────────────────────────
 
     def normalize(self, expr: WheelNumber) -> WheelNumber:
         """
-        Próba uproszczenia wyrażenia wheel.
-        Dla wyrażeń symbolicznych używa SymPy.simplify.
+        Attempt to simplify a wheel expression.
+        For symbolic expressions, uses SymPy.simplify.
         """
         if expr.is_bottom:
             return expr
         try:
             simplified = sp.simplify(expr.value)
-            # Sprawdź czy uproszenie nie wprowadziło nieskończoności
+            # Check if simplification introduced infinity
             if simplified in (sp.oo, sp.zoo, sp.nan, -sp.oo):
                 return W(BOTTOM)
             return W(simplified)
         except Exception:
             return expr
 
-    # ── Ewaluacja wyrażenia przy podstawieniu ─────────────────────────────────
+    # ── Evaluation of expression with substitution ────────────────────────────
 
     def evaluate_at(
         self,
@@ -206,65 +206,65 @@ class WheelAlgebra:
         trace: bool = False,
     ) -> WheelNumber:
         """
-        Podstawia wartości do wyrażenia symbolicznego.
-        Zwraca ⊥ jeśli podstawienie prowadzi do /0.
+        Substitutes values into a symbolic expression.
+        Returns ⊥ if substitution leads to /0.
 
         Args:
-            expr:          WheelNumber z symbolami SymPy
-            substitutions: {symbol: wartość}, np. {r: 0}
-            trace:         czy drukować kroki
+            expr:          WheelNumber with SymPy symbols
+            substitutions: {symbol: value}, e.g., {r: 0}
+            trace:         whether to print steps
         """
         if expr.is_bottom:
             return expr
 
         if trace:
-            print(f"\n  Ewaluacja: {expr.value}")
-            print(f"  Podstawienie: {substitutions}")
+            print(f"\n  Evaluation: {expr.value}")
+            print(f"  Substitution: {substitutions}")
 
         try:
-            # KLUCZOWE: sprawdź rekurencyjnie mianowniki PRZED podstawieniem
-            # (SymPy może uprościć 1/(1-r_s/r) przy r=0 do 0, tracąc info o /r)
+            # KEY: recursively check denominators BEFORE substitution
+            # (SymPy can simplify 1/(1-r_s/r) at r=0 to 0, losing info about /r)
             if _has_division_by_zero_at(expr.value, substitutions):
                 if trace:
-                    print(f"  → Znaleziono /0 w podwyrażeniu → ⊥")
+                    print(f"  → Found /0 in subexpression → ⊥")
                 return W(BOTTOM)
 
             substituted = expr.value.subs(substitutions)
 
-            # Sprawdź czy wynik jest nieskończony / niezdefiniowany
+            # Check if result is infinite / undefined
             if substituted in (sp.oo, sp.zoo, sp.nan, -sp.oo):
                 if trace:
-                    print(f"  → Klasyczny wynik: {substituted} → mapuję na ⊥")
+                    print(f"  → Classical result: {substituted} → mapping to ⊥")
                 return W(BOTTOM)
 
-            # Sprawdź czy wynik ZAWIERA zoo/oo jako czynnik (np. zoo*k)
+            # Check if result CONTAINS zoo/oo as a factor (e.g., zoo*k)
             if _contains_infinity(substituted):
                 if trace:
-                    print(f"  → Zawiera nieskończoność ({substituted}) → ⊥")
+                    print(f"  → Contains infinity ({substituted}) → ⊥")
                 return W(BOTTOM)
 
-            # Sprawdź mianowniki po podstawieniu
+            # Check denominators after substitution
             numer, denom = sp.fraction(sp.simplify(substituted))
             if denom == sp.S.Zero or (hasattr(denom, 'is_zero') and denom.is_zero):
                 if trace:
-                    print(f"  → Mianownik = 0 → ⊥")
+                    print(f"  → Denominator = 0 → ⊥")
                 return W(BOTTOM)
 
             result = W(substituted)
             if trace:
-                print(f"  → Wynik: {result}")
+                print(f"  → Result: {result}")
             return result
 
         except (ZeroDivisionError, sp.core.sympify.SympifyError):
             if trace:
-                print(f"  → Wyjątek dzielenia → ⊥")
+                print(f"  → Division exception → ⊥")
             return W(BOTTOM)
         except Exception as e:
             if trace:
-                print(f"  → Błąd: {e} → ⊥")
+                print(f"  → Error: {e} → ⊥")
             return W(BOTTOM)
 
-    # ── Rozdzielność — kluczowa różnica vs klasyczna algebra ─────────────────
+    # ── Distributivity — key difference vs classical algebra ─────────────────
 
     def distributivity_check(
         self,
@@ -274,10 +274,10 @@ class WheelAlgebra:
         trace: bool = True,
     ) -> dict:
         """
-        Sprawdza czy x*(y+z) = x*y + x*z w algebrze koła.
+        Checks if x*(y+z) = x*y + x*z in wheel algebra.
 
-        W klasycznej algebrze to zawsze prawda.
-        W wheel: NIE zachodzi gdy x=0 lub wynik zawiera ⊥.
+        In classical algebra, this is always true.
+        In wheel: it does NOT hold when x=0 or the result contains ⊥.
         """
         x, y, z = _coerce(x), _coerce(y), _coerce(z)
 
@@ -287,15 +287,15 @@ class WheelAlgebra:
         holds = (lhs == rhs)
 
         if trace:
-            print(f"\n  Rozdzielność: x*(y+z) = x*y + x*z ?")
+            print(f"\n  Distributivity: x*(y+z) = x*y + x*z ?")
             print(f"  x={x}, y={y}, z={z}")
             print(f"  LHS: {x}*({y}+{z}) = {x}*{self.add(y,z)} = {lhs}")
             print(f"  RHS: {x}*{y} + {x}*{z} = {self.mul(x,y)} + {self.mul(x,z)} = {rhs}")
-            print(f"  Zachodzi: {'✓ TAK' if holds else '✗ NIE — to różni Wheel od klasycznej algebry!'}")
+            print(f"  Holds: {'✓ YES' if holds else '✗ NO — this distinguishes Wheel from classical algebra!'}")
 
         return {"lhs": lhs, "rhs": rhs, "holds": holds}
 
-    # ── Wheel limit — granica w stylu wheel ───────────────────────────────────
+    # ── Wheel limit — wheel-style limit ──────────────────────────────────────
 
     def wheel_limit(
         self,
@@ -305,11 +305,11 @@ class WheelAlgebra:
         trace: bool = False,
     ) -> WheelNumber:
         """
-        'Granica' w wheel — po prostu podstawia wartość.
-        Jeśli prowadzi do /0 → ⊥ (zamiast ∞).
+        'Limit' in wheel — simply substitutes the value.
+        If it leads to /0 → ⊥ (instead of ∞).
 
-        To jest filozoficzny rdzeń projektu:
-        Wheel nie potrzebuje granic — podstawia i zwraca ⊥ zamiast błędu.
+        This is the philosophical core of the project:
+        Wheel doesn't need limits — it substitutes and returns ⊥ instead of an error.
         """
         result = self.evaluate_at(expr, {var: value}, trace=trace)
         if trace:
@@ -318,82 +318,82 @@ class WheelAlgebra:
                 classical = str(sp.limit(expr.value, var, value))
             except Exception:
                 pass
-            print(f"\n  Porównanie:")
-            print(f"  Klasyczna granica lim({var}→{value}): {classical}")
-            print(f"  Wheel podstawienie:                   {result}")
+            print(f"\n  Comparison:")
+            print(f"  Classical limit lim({var}→{value}): {classical}")
+            print(f"  Wheel substitution:                 {result}")
         return result
 
-    # ── Wyjaśnienie krok po kroku ─────────────────────────────────────────────
+    # ── Step-by-step explanation ──────────────────────────────────────────────
 
     def explain(self, operation: str, *args) -> str:
-        """Zwraca tekstowe wyjaśnienie operacji."""
+        """Returns a text explanation of the operation."""
         lines = []
         op = operation.lower()
 
         if op in ("div", "/"):
             a, b = _coerce(args[0]), _coerce(args[1])
-            lines.append(f"Obliczam: {a} / {b}")
-            lines.append(f"  Krok 1: /({b}) = ?")
+            lines.append(f"Calculating: {a} / {b}")
+            lines.append(f"  Step 1: /({b}) = ?")
             b_inv = self.inv(b, trace=False)
             lines.append(f"         /({b}) = {b_inv}")
-            lines.append(f"  Krok 2: {a} * {b_inv} = ?")
+            lines.append(f"  Step 2: {a} * {b_inv} = ?")
             result = self.mul(a, b_inv)
             lines.append(f"         = {result}")
             if result.is_bottom:
-                lines.append(f"  Wynik ⊥ — w klasycznej algebrze byłoby: błąd lub ∞")
-            lines.append(f"  Wynik końcowy: {result}")
+                lines.append(f"  Result ⊥ — in classical algebra it would be: error or ∞")
+            lines.append(f"  Final result: {result}")
 
         elif op in ("inv", "/x"):
             a = _coerce(args[0])
-            lines.append(f"Obliczam: /({a})")
+            lines.append(f"Calculating: /({a})")
             if a.is_bottom:
-                lines.append(f"  /⊥ = ⊥  [⊥ jest absorbujące]")
+                lines.append(f"  /⊥ = ⊥  [⊥ is absorbing]")
             elif a.is_zero:
-                lines.append(f"  /0 = ⊥  [aksjomat: 0·/0 = ⊥ w kole]")
+                lines.append(f"  /0 = ⊥  [axiom: 0·/0 = ⊥ in wheel]")
             else:
-                lines.append(f"  /{a} = {a.wheel_inv()}  [inwersja standardowa]")
+                lines.append(f"  /{a} = {a.wheel_inv()}  [standard inversion]")
 
         return "\n".join(lines)
 
 
-# ─── Testy i demo ─────────────────────────────────────────────────────────────
+# ─── Tests and demo ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys
     wa = WheelAlgebra()
 
     print("═" * 60)
-    print("  WheelAlgebra — reguły i przepisywanie")
+    print("  WheelAlgebra — rules and rewriting")
     print("═" * 60)
 
     r, r_s = sp.symbols("r r_s", positive=True)
 
-    # ── Test 1: Rozdzielność — gdzie Wheel różni się od klasycznej algebry
-    print("\n▶  Rozdzielność w Wheel vs klasyczna algebra")
-    print("\n  Przypadek 1: x=2, y=3, z=4 (normalne liczby)")
+    # ── Test 1: Distributivity — where Wheel differs from classical algebra
+    print("\n▶  Distributivity in Wheel vs classical algebra")
+    print("\n  Case 1: x=2, y=3, z=4 (normal numbers)")
     wa.distributivity_check(W(2), W(3), W(4))
 
-    print("\n  Przypadek 2: x=0, y=1/0, z=0 (z ⊥)")
+    print("\n  Case 2: x=0, y=1/0, z=0 (with ⊥)")
     wa.distributivity_check(W(0), W(BOTTOM), W(0))
 
-    # ── Test 2: Wheel limit vs klasyczna granica
-    print("\n▶  Wheel 'granica' vs klasyczna granica")
-    print("\n  g_rr Schwarzschilda: 1/(1 - r_s/r)")
+    # ── Test 2: Wheel limit vs classical limit
+    print("\n▶  Wheel 'limit' vs classical limit")
+    print("\n  Schwarzschild g_rr: 1/(1 - r_s/r)")
     g_rr = W(1 / (1 - r_s / r))
     wa.wheel_limit(g_rr, r, r_s, trace=True)
 
-    # ── Test 3: Wyjaśnienie krok po kroku
-    print("\n▶  Krok po kroku: 5 / 0")
+    # ── Test 3: Step-by-step explanation
+    print("\n▶  Step by step: 5 / 0")
     print(wa.explain("div", W(5), W(0)))
 
-    print("\n▶  Krok po kroku: 1 / (r - r_s) przy r=r_s")
+    print("\n▶  Step by step: 1 / (r - r_s) at r=r_s")
     expr_sym = W(1 / (r - r_s))
     result = wa.evaluate_at(expr_sym, {r: r_s}, trace=True)
 
-    # ── Test 4: Kluczowy aksjomat — 0 * ⊥ = ⊥ (nie 0!)
-    print("\n▶  Aksjomat 10: 0 * ⊥ = ⊥  (nie 0!)")
+    # ── Test 4: Key axiom — 0 * ⊥ = ⊥ (not 0!)
+    print("\n▶  Axiom 10: 0 * ⊥ = ⊥  (not 0!)")
     result = wa.mul(W(0), W(BOTTOM), trace=True)
-    print(f"  Klasycznie: 0 * ∞ = NaN lub błąd")
-    print(f"  Wheel:      0 * ⊥ = {result}")
+    print(f"  Classically: 0 * ∞ = NaN or error")
+    print(f"  Wheel:       0 * ⊥ = {result}")
 
     print("\n" + "═" * 60)
