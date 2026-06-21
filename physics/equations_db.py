@@ -1,8 +1,8 @@
-# Copyright (c) 2026 Mariusz Rossa
-# Licensed under the MIT License — see LICENSE file for details.
+# Copyright (c) 2026 Mariusz "Vidi" Rossa
+# Licensed under the MIT License - see LICENSE file for details.
 
 """
-equations_db.py — database of physical equations
+equations_db.py - database of physical equations
 
 Catalogue of known equations with metadata:
   - priority (1=division, 2=singularity, 3=limit)
@@ -102,7 +102,7 @@ def build_database() -> list[PhysicsEquation]:
             {"var": r, "value": sp.S.Zero,  "description": "Physical singularity"},
         ],
         physical_meaning="Radial component of the Schwarzschild metric tensor",
-        notes="K(r_s) is finite — the horizon is NOT a physical singularity",
+        notes="K(r_s) is finite - the horizon is NOT a physical singularity",
     ))
 
     db.append(PhysicsEquation(
@@ -126,9 +126,9 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[r_s],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": r, "value": sp.S.Zero, "description": "True singularity — K→∞"},
+            {"var": r, "value": sp.S.Zero, "description": "True singularity - K→∞"},
         ],
-        physical_meaning="K = R_abcd R^abcd — scalar curvature invariant. K(r_s) is finite.",
+        physical_meaning="K = R_abcd R^abcd - scalar curvature invariant. K(r_s) is finite.",
         notes="Key test: distinguishes coordinate artifact from physical singularity",
     ))
 
@@ -140,16 +140,16 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[r_s],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": r, "value": r_s,       "description": "Horizon — coordinate singularity"},
+            {"var": r, "value": r_s,       "description": "Horizon - coordinate singularity"},
             {"var": r, "value": sp.S.Zero, "description": "Physical singularity"},
         ],
-        physical_meaning="Christoffel symbol — connection to geodesic acceleration",
+        physical_meaning="Christoffel symbol - connection to geodesic acceleration",
     ))
 
     # ── PRIORITY 1: Cosmology ─────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Friedmann — curvature term",
+        name="Friedmann - curvature term",
         domain="COSMO",
         expression=k_curv * c**2 / a**2,
         variables=[a],
@@ -170,7 +170,7 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[rho],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": a, "value": sp.S.Zero, "description": "Big Bang — density → ∞"},
+            {"var": a, "value": sp.S.Zero, "description": "Big Bang - density → ∞"},
         ],
         physical_meaning="Evolution of matter density with scale factor",
     ))
@@ -183,7 +183,7 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[rho],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": a, "value": sp.S.Zero, "description": "Big Bang — radiation → ∞"},
+            {"var": a, "value": sp.S.Zero, "description": "Big Bang - radiation → ∞"},
         ],
         physical_meaning="Evolution of radiation density (+ relativistic pressure term)",
     ))
@@ -198,8 +198,8 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[m],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": p, "value":  m, "description": "On-shell (p=+m) — real particle"},
-            {"var": p, "value": -m, "description": "On-shell (p=-m) — antiparticle"},
+            {"var": p, "value":  m, "description": "On-shell (p=+m) - real particle"},
+            {"var": p, "value": -m, "description": "On-shell (p=-m) - antiparticle"},
         ],
         physical_meaning="Klein-Gordon propagator. Pole = asymptotic (observable) state.",
         notes="Hypothesis: ⊥ on-shell = algebraic definition of observability",
@@ -240,10 +240,10 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[],
         priority=Priority.DIVISION,
         known_singular=[
-            {"var": p, "value": sp.S.Zero, "description": "IR — massless fermion cannot have p=0"},
+            {"var": p, "value": sp.S.Zero, "description": "IR - massless fermion cannot have p=0"},
         ],
         physical_meaning="Dirac propagator for m=0 (neutrinos, chiral quarks).",
-        notes="Wheel algebraically forbids p=0 for massless particles — physically correct",
+        notes="Wheel algebraically forbids p=0 for massless particles - physically correct",
     ))
 
     # ── PRIORITY 2: Thermodynamics / statistical ──────────────────────────────
@@ -256,7 +256,7 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[epsilon, kB],
         priority=Priority.SINGULARITY,
         known_singular=[
-            {"var": T, "value": sp.S.Zero, "description": "Absolute zero — thermodynamic singularity"},
+            {"var": T, "value": sp.S.Zero, "description": "Absolute zero - thermodynamic singularity"},
         ],
         physical_meaning="Probability of occupying energy state ε at temp. T",
     ))
@@ -269,7 +269,7 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[hbar, omega, kB],
         priority=Priority.LIMIT,
         known_singular=[
-            {"var": T, "value": sp.S.Zero, "description": "T=0 — denominator exp(∞)-1 → ∞"},
+            {"var": T, "value": sp.S.Zero, "description": "T=0 - denominator exp(∞)-1 → ∞"},
         ],
         physical_meaning="Energy of photons in black body radiation",
         notes="0/0 form when T→∞ (classical Rayleigh-Jeans limit)",
@@ -285,13 +285,13 @@ def build_database() -> list[PhysicsEquation]:
         parameters=[],
         priority=Priority.LIMIT,
         known_singular=[
-            {"var": x, "value": sp.S.Zero, "description": "0/0 form — limit = 1"},
+            {"var": x, "value": sp.S.Zero, "description": "0/0 form - limit = 1"},
         ],
-        physical_meaning="sinc function — appears in diffraction, Fourier transform",
+        physical_meaning="sinc function - appears in diffraction, Fourier transform",
         notes="Classically: lim(x→0) sin(x)/x = 1. Wheel: ⊥. This is a significant difference!",
     ))
 
-    # ── NEW: Riemann Tensor — Schwarzschild ───────────────────────────────────
+    # ── NEW: Riemann Tensor - Schwarzschild ───────────────────────────────────
 
     db.append(PhysicsEquation(
         name="Riemann tensor R^r_trt",
@@ -302,14 +302,14 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Physical singularity — curvature → ∞"},
+             "description": "Physical singularity - curvature → ∞"},
         ],
         physical_meaning=(
-            "R^r_trt = -r_s/r³ — Riemann tensor component for Schwarzschild. "
-            "At r=r_s: -1/r_s² (finite — regular horizon). "
+            "R^r_trt = -r_s/r³ - Riemann tensor component for Schwarzschild. "
+            "At r=r_s: -1/r_s² (finite - regular horizon). "
             "At r=0: ⊥ (physical singularity)."
         ),
-        notes="R(r_s) finite — Riemann tensor confirms the horizon is an artifact",
+        notes="R(r_s) finite - Riemann tensor confirms the horizon is an artifact",
     ))
 
     db.append(PhysicsEquation(
@@ -321,14 +321,14 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Physical singularity — angular curvature → ∞"},
+             "description": "Physical singularity - angular curvature → ∞"},
         ],
         physical_meaning=(
-            "R^θ_rθr = -r_s/(2r³) — angular-radial component. "
+            "R^θ_rθr = -r_s/(2r³) - angular-radial component. "
             "Measures curvature in angular directions. "
             "At r=r_s: -1/(2r_s²) is finite. At r=0: ⊥."
         ),
-        notes="Same structure as R^r_trt — singularity only at r=0",
+        notes="Same structure as R^r_trt - singularity only at r=0",
     ))
 
     db.append(PhysicsEquation(
@@ -342,21 +342,21 @@ def build_database() -> list[PhysicsEquation]:
             {"var": r, "value": sp.S.Zero,
              "description": "Physical singularity"},
             {"var": r, "value": r_s,
-             "description": "Horizon — factor f(r)=0 cancels r_s/r³, result 0 not ⊥"},
+             "description": "Horizon - factor f(r)=0 cancels r_s/r³, result 0 not ⊥"},
         ],
         physical_meaning=(
             "R^φ_tφt = (r_s/r³)·(1-r_s/r). "
-            "Exceptional: at r=r_s we have 0·∞ — f(r)→0 but r_s/r³→∞. "
+            "Exceptional: at r=r_s we have 0·∞ - f(r)→0 but r_s/r³→∞. "
             "Wheel through recursion on /r in f(r) gives ⊥ at r=0. "
             "At r=r_s: (1-r_s/r)→0 cancels divergence, result = 0."
         ),
-        notes="0·∞ case at r=r_s — physically V_eff=0 at the horizon",
+        notes="0·∞ case at r=r_s - physically V_eff=0 at the horizon",
     ))
 
     # ── NEW: Dirac Equation ───────────────────────────────────────────────────
 
     db.append(PhysicsEquation(
-        name="Dirac m=0 — Weyl propagator",
+        name="Dirac m=0 - Weyl propagator",
         domain="QFT",
         expression=sp.Integer(1) / p,
         variables=[p],
@@ -364,18 +364,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": p, "value": sp.S.Zero,
-             "description": "Massless fermion on-shell — p=0 physically unattainable"},
+             "description": "Massless fermion on-shell - p=0 physically unattainable"},
         ],
         physical_meaning=(
             "lim(m→0) S_F(p,m) = 1/p. "
             "Dirac equation for m=0 is two independent Weyl equations. "
-            "Pole at p=0 — state of rest for massless particle is inaccessible (moves at c)."
+            "Pole at p=0 - state of rest for massless particle is inaccessible (moves at c)."
         ),
         notes="Wheel algebraically derives the prohibition of p=0 for massless particles",
     ))
 
     db.append(PhysicsEquation(
-        name="Dirac — relativistic energy 1/√(p²+m²)",
+        name="Dirac - relativistic energy 1/√(p²+m²)",
         domain="QFT",
         expression=sp.Integer(1) / sp.sqrt(p**2 + m**2),
         variables=[p, m],
@@ -383,12 +383,12 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": m, "value": sp.S.Zero,
-             "description": "Massless limit at p=0 — 1/|p|, IR singularity"},
+             "description": "Massless limit at p=0 - 1/|p|, IR singularity"},
         ],
         physical_meaning=(
-            "1/E = 1/√(p²+m²) — relativistic state normalization. "
+            "1/E = 1/√(p²+m²) - relativistic state normalization. "
             "At m=0 and p=0: 1/0 → ⊥. "
-            "At m>0 and p=0: 1/m (finite — mass regularizes IR)."
+            "At m>0 and p=0: 1/m (finite - mass regularizes IR)."
         ),
         notes="Wheel distinguishes: m>0 no singularity at p=0, m=0 gives ⊥",
     ))
@@ -406,18 +406,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Physical singularity — V_eff → ∞"},
+             "description": "Physical singularity - V_eff → ∞"},
             {"var": r, "value": r_s,
-             "description": "Horizon — f(r)=0 zeroes V_eff (barrier disappears)"},
+             "description": "Horizon - f(r)=0 zeroes V_eff (barrier disappears)"},
         ],
         physical_meaning=(
             "V_eff = f(r)·[m² + l(l+1)/r² + r_s/r³], f=1-r_s/r. "
             "Effective potential of KG in Schwarzschild (tortoise coords). "
-            "First connection of GR+QFT — both singularities overlap at r=0. "
-            "At r=r_s: V_eff=0 (horizon = barrier disappears — physically correct). "
+            "First connection of GR+QFT - both singularities overlap at r=0. "
+            "At r=r_s: V_eff=0 (horizon = barrier disappears - physically correct). "
             "At r=0: V_eff=⊥."
         ),
-        notes="r=r_s gives V_eff=0, not ⊥ — the horizon here is a vanishing barrier, not a singularity",
+        notes="r=r_s gives V_eff=0, not ⊥ - the horizon here is a vanishing barrier, not a singularity",
     ))
 
     db.append(PhysicsEquation(
@@ -433,7 +433,7 @@ def build_database() -> list[PhysicsEquation]:
         ],
         physical_meaning=(
             "Euclidean KG propagator: 1/(p²+m²). "
-            "For m>0: no pole on the real axis — hence the utility of Wick rotation. "
+            "For m>0: no pole on the real axis - hence the utility of Wick rotation. "
             "For m=0 at p=0: ⊥. "
             "Comparison with Minkowski 1/(p²-m²): Wick rotation removes real poles."
         ),
@@ -448,7 +448,7 @@ def build_database() -> list[PhysicsEquation]:
     Sigma  = r**2 + a_kerr**2 * sp.cos(theta)**2  # shape factor
 
     db.append(PhysicsEquation(
-        name="Kerr g_rr — Δ(r) in denominator",
+        name="Kerr g_rr - Δ(r) in denominator",
         domain="GR",
         expression=Sigma / Delta,
         variables=[r],
@@ -456,17 +456,17 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": r_s/2 + sp.sqrt(r_s**2/4 - a_kerr**2),
-             "description": "Outer horizon r+ — Δ(r+)=0"},
+             "description": "Outer horizon r+ - Δ(r+)=0"},
             {"var": r, "value": r_s/2 - sp.sqrt(r_s**2/4 - a_kerr**2),
-             "description": "Inner horizon r- — Δ(r-)=0"},
+             "description": "Inner horizon r- - Δ(r-)=0"},
         ],
         physical_meaning=(
             "g_rr component of Kerr metric (rotating black hole). "
-            "Δ = r²-r_s·r+a² — zeroes out at two horizons r±. "
+            "Δ = r²-r_s·r+a² - zeroes out at two horizons r±. "
             "Kerr ring singularity: r=0, θ=π/2 (Σ→0 and Δ→a²≠0). "
-            "More realistic model than Schwarzschild — every astrophysical BH rotates."
+            "More realistic model than Schwarzschild - every astrophysical BH rotates."
         ),
-        notes="Two horizons instead of one — richer singularity structure than Schwarzschild",
+        notes="Two horizons instead of one - richer singularity structure than Schwarzschild",
     ))
 
     # ── GR: Reissner-Nordström Metric ─────────────────────────────────────────
@@ -483,7 +483,7 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": r_s/2 + sp.sqrt(r_s**2/4 - r_Q**2),
-             "description": "Outer horizon r+ — charged BH"},
+             "description": "Outer horizon r+ - charged BH"},
             {"var": r, "value": r_s/2 - sp.sqrt(r_s**2/4 - r_Q**2),
              "description": "Inner horizon r- (Cauchy)"},
             {"var": r, "value": sp.S.Zero,
@@ -495,7 +495,7 @@ def build_database() -> list[PhysicsEquation]:
             "When r_Q = r_s/2: extremal horizon (r+=r-). "
             "When r_Q > r_s/2: naked singularities (no horizon)."
         ),
-        notes="Three singularities — richest structure among spherical metrics",
+        notes="Three singularities - richest structure among spherical metrics",
     ))
 
     # ── GR: Hubble Radius ─────────────────────────────────────────────────────
@@ -509,15 +509,15 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": H, "value": sp.S.Zero,
-             "description": "H=0 — static universe, no cosmological horizon"},
+             "description": "H=0 - static universe, no cosmological horizon"},
         ],
         physical_meaning=(
-            "r_H = c/H — size of the Hubble horizon. "
+            "r_H = c/H - size of the Hubble horizon. "
             "H=0: static universe (Einstein model), horizon → ∞. "
             "In Wheel: c/0 = ⊥. "
             "Connection to Friedmann: H² → 0 when a → constant."
         ),
-        notes="Connects to Friedmann equations — when H²=0, r_H=⊥",
+        notes="Connects to Friedmann equations - when H²=0, r_H=⊥",
     ))
 
     # ── Hawking Temperature ───────────────────────────────────────────────────
@@ -531,15 +531,15 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": M, "value": sp.S.Zero,
-             "description": "M=0 — no black hole, T_H → ∞"},
+             "description": "M=0 - no black hole, T_H → ∞"},
         ],
         physical_meaning=(
-            "T_H = ħc³/(8πGMk_B) — temperature of Hawking radiation. "
+            "T_H = ħc³/(8πGMk_B) - temperature of Hawking radiation. "
             "The smaller the BH mass, the higher the temperature (paradox). "
-            "M→0: T_H→∞ — final stage of BH evaporation. "
+            "M→0: T_H→∞ - final stage of BH evaporation. "
             "Wheel: T_H(M=0) = ⊥. Connection to Kretschmann: K~1/r⁶, M~r_s."
         ),
-        notes="Connects GR with QFT — thermal radiation from event horizon",
+        notes="Connects GR with QFT - thermal radiation from event horizon",
     ))
 
     # ── Classical Mechanics ───────────────────────────────────────────────────
@@ -553,15 +553,15 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Point charge — potential → ∞"},
+             "description": "Point charge - potential → ∞"},
         ],
         physical_meaning=(
-            "V_C = ke²/r — electrostatic potential of a point charge. "
+            "V_C = ke²/r - electrostatic potential of a point charge. "
             "Archetype of all 1/r singularities in physics. "
             "In QED replaced by photon propagator 1/q² (already in db). "
-            "Wheel: V_C(r=0) = ⊥ — point charge is a singularity."
+            "Wheel: V_C(r=0) = ⊥ - point charge is a singularity."
         ),
-        notes="Archetype of 1/r singularities — foundation of classical electrodynamics",
+        notes="Archetype of 1/r singularities - foundation of classical electrodynamics",
     ))
 
     db.append(PhysicsEquation(
@@ -573,13 +573,13 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Point mass — potential → -∞"},
+             "description": "Point mass - potential → -∞"},
         ],
         physical_meaning=(
-            "V_g = -GM/r — Newtonian gravitational potential. "
+            "V_g = -GM/r - Newtonian gravitational potential. "
             "Non-relativistic limit of Schwarzschild metric (g_tt ≈ -1 + r_s/r). "
             "Wheel: V_g(r=0) = ⊥. "
-            "Same singularity as in GR — Wheel is consistent in both limits."
+            "Same singularity as in GR - Wheel is consistent in both limits."
         ),
         notes="Consistency: same ⊥ as in Schwarzschild for r=0",
     ))
@@ -593,15 +593,15 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "Collision — force → ∞ (collisional singularity)"},
+             "description": "Collision - force → ∞ (collisional singularity)"},
         ],
         physical_meaning=(
-            "F = -GM/r² — Newton's gravity force / Kepler force. "
-            "Collisional singularity at r=0 — foundation of the N-body problem. "
+            "F = -GM/r² - Newton's gravity force / Kepler force. "
+            "Collisional singularity at r=0 - foundation of the N-body problem. "
             "Wheel: F(r=0) = ⊥. "
-            "Connection to ChaosEngine — in CRT collisional singularities are the same ⊥."
+            "Connection to ChaosEngine - in CRT collisional singularities are the same ⊥."
         ),
-        notes="Collisional singularities in CRT — bridge between WheelPhysics and ChaosEngine",
+        notes="Collisional singularities in CRT - bridge between WheelPhysics and ChaosEngine",
     ))
 
     db.append(PhysicsEquation(
@@ -613,7 +613,7 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": omega, "value": omega0,
-             "description": "Resonance — amplitude → ∞ (without damping)"},
+             "description": "Resonance - amplitude → ∞ (without damping)"},
         ],
         physical_meaning=(
             "Amplitude of a forced harmonic oscillator: A ~ 1/(ω²-ω₀²). "
@@ -629,7 +629,7 @@ def build_database() -> list[PhysicsEquation]:
     a_vdw, b_vdw, R_gas = sp.symbols("a_vdw b_vdw R_gas", positive=True)
 
     db.append(PhysicsEquation(
-        name="van der Waals — pressure P(V,T)",
+        name="van der Waals - pressure P(V,T)",
         domain="THERMO",
         expression=R_gas * T / (V - b_vdw) - a_vdw / V**2,
         variables=[V],
@@ -637,12 +637,12 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": V, "value": b_vdw,
-             "description": "V=b — proper volume of molecules (hard cores)"},
+             "description": "V=b - proper volume of molecules (hard cores)"},
             {"var": V, "value": sp.S.Zero,
-             "description": "V=0 — nonphysical singularity (gas cannot collapse)"},
+             "description": "V=0 - nonphysical singularity (gas cannot collapse)"},
         ],
         physical_meaning=(
-            "P = RT/(V-b) - a/V² — van der Waals equation of state. "
+            "P = RT/(V-b) - a/V² - van der Waals equation of state. "
             "V=b: molecules touch, pressure → ∞ (hard cores). "
             "V=0: purely mathematical singularity, nonphysical. "
             "Wheel correctly gives ⊥ at both points."
@@ -661,13 +661,13 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": T, "value": Tc_sym,
-             "description": "T=Tc — critical point, C → ∞ (critical exponent α)"},
+             "description": "T=Tc - critical point, C → ∞ (critical exponent α)"},
         ],
         physical_meaning=(
-            "C ~ |T-Tc|^(-α) — specific heat divergence at phase transition. "
+            "C ~ |T-Tc|^(-α) - specific heat divergence at phase transition. "
             "α ≈ 0.11 for 3D Ising, α=0 (log) for He-4. "
             "Simplification: α=1 (mean field). "
-            "Wheel: C(T=Tc) = ⊥ — critical point is a thermodynamic singularity."
+            "Wheel: C(T=Tc) = ⊥ - critical point is a thermodynamic singularity."
         ),
         notes="Critical exponents describe how fast we approach ⊥",
     ))
@@ -685,13 +685,13 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": s_var, "value": m**2,
-             "description": "s=m² — s-channel pole (intermediate particle on-shell)"},
+             "description": "s=m² - s-channel pole (intermediate particle on-shell)"},
         ],
         physical_meaning=(
             "Compton scattering amplitude: A ~ 1/(s-m²). "
-            "s = (p+k)² — Mandelstam variable. "
+            "s = (p+k)² - Mandelstam variable. "
             "Pole at s=m²: intermediate particle becomes real (on-shell). "
-            "Identical structure to scalar propagator — ⊥ = asymptotic particle."
+            "Identical structure to scalar propagator - ⊥ = asymptotic particle."
         ),
         notes="Confirms: poles in Mandelstam variables mean on-shell, i.e. ⊥",
     ))
@@ -705,7 +705,7 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": q_mom, "value": sp.S.Zero,
-             "description": "q=0 — zero-momentum photon (IR, Coulomb potential)"},
+             "description": "q=0 - zero-momentum photon (IR, Coulomb potential)"},
         ],
         physical_meaning=(
             "Photon exchange amplitude in QED: M ~ e²/q². "
@@ -713,7 +713,7 @@ def build_database() -> list[PhysicsEquation]:
             "Wheel: M(q=0) = ⊥. "
             "Connection between QED and classical electrodynamics via limit q→0."
         ),
-        notes="q→0 is the classical limit of QED — Wheel gives ⊥ where classically V_C=∞",
+        notes="q→0 is the classical limit of QED - Wheel gives ⊥ where classically V_C=∞",
     ))
 
     # ── Mathematics ───────────────────────────────────────────────────────────
@@ -727,7 +727,7 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": n, "value": sp.S.Zero,
-             "description": "n=0 — first pole of Γ(n), residue = 1"},
+             "description": "n=0 - first pole of Γ(n), residue = 1"},
         ],
         physical_meaning=(
             "Γ(n) ~ 1/n as n→0 (and at n=-1,-2,...). "
@@ -736,11 +736,11 @@ def build_database() -> list[PhysicsEquation]:
             "Wheel: Γ_pole(n=0) = ⊥. "
             "Hypothesis: dimensional regularization is a substitute for Wheel in integrals."
         ),
-        notes="Bridge between Wheel and dimensional regularization — Γ(ε)=⊥ as ε→0",
+        notes="Bridge between Wheel and dimensional regularization - Γ(ε)=⊥ as ε→0",
     ))
 
     db.append(PhysicsEquation(
-        name="Riemann ζ function — pole at s=1",
+        name="Riemann ζ function - pole at s=1",
         domain="MATH",
         expression=sp.Integer(1) / (s - sp.Integer(1)),
         variables=[s],
@@ -748,19 +748,19 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": s, "value": sp.Integer(1),
-             "description": "s=1 — pole of ζ(s), residue = 1"},
+             "description": "s=1 - pole of ζ(s), residue = 1"},
         ],
         physical_meaning=(
-            "ζ(s) ~ 1/(s-1) as s→1 — the only pole of the Riemann function. "
+            "ζ(s) ~ 1/(s-1) as s→1 - the only pole of the Riemann function. "
             "Wheel: ζ_pole(s=1) = ⊥. "
             "In physics: ζ-regularization of sum 1+2+3+... = -1/12 bypasses the pole. "
             "Hypothesis: ζ-regularization is a classical substitute for Wheel for divergent series."
         ),
-        notes="ζ-regularization and Wheel — two different ways for the same singularity",
+        notes="ζ-regularization and Wheel - two different ways for the same singularity",
     ))
 
     db.append(PhysicsEquation(
-        name="Fourier transform IR — 1/ω",
+        name="Fourier transform IR - 1/ω",
         domain="MATH",
         expression=sp.Integer(1) / omega,
         variables=[omega],
@@ -768,31 +768,31 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": omega, "value": sp.S.Zero,
-             "description": "ω=0 — IR divergence in frequency space"},
+             "description": "ω=0 - IR divergence in frequency space"},
         ],
         physical_meaning=(
-            "F[1/t](ω) ~ 1/ω — Fourier transform of 1/t function. "
+            "F[1/t](ω) ~ 1/ω - Fourier transform of 1/t function. "
             "IR divergence at ω=0 appears in: "
             "acoustics (zero modes), QFT (soft photons/gluons), "
             "turbulence (Kolmogorov spectrum). "
             "Wheel: (1/ω)(ω=0) = ⊥."
         ),
-        notes="IR divergences in QFT and Wheel — ω=0 means no energy, unattainable state",
+        notes="IR divergences in QFT and Wheel - ω=0 means no energy, unattainable state",
     ))
 
 
     # ══════════════════════════════════════════════════════════════════════════
-    # NEW EQUATIONS — v0.9
+    # NEW EQUATIONS - v0.9
     # GR/COSMO: Milne/de Sitter, ADM, photon V_eff
     # QFT: QCD gluon propagator, damped oscillator Green, Mandelstam t-channel
     # THERMO: Bekenstein-Hawking entropy (derivative), van Hove D(E)
-    # MATH: sinc², (1-cos)/x² — counterexamples for wheel_calculus.py
+    # MATH: sinc², (1-cos)/x² - counterexamples for wheel_calculus.py
     # ══════════════════════════════════════════════════════════════════════════
 
-    # ── GR/COSMO: de Sitter Metric — cosmological horizon ─────────────────────
+    # ── GR/COSMO: de Sitter Metric - cosmological horizon ─────────────────────
 
     db.append(PhysicsEquation(
-        name="de Sitter metric — g_rr = 1/(1 - r²/R_H²)",
+        name="de Sitter metric - g_rr = 1/(1 - r²/R_H²)",
         domain="COSMO",
         expression=sp.Integer(1) / (1 - r**2 / r_s**2),   # r_s plays the role of R_H
         variables=[r],
@@ -800,23 +800,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": r, "value": r_s,
-             "description": "r = R_H — de Sitter cosmological horizon (equivalent of r_s in Schwarzschild)"},
+             "description": "r = R_H - de Sitter cosmological horizon (equivalent of r_s in Schwarzschild)"},
         ],
         physical_meaning=(
             "g_rr of de Sitter metric: 1/(1 - r²/R_H²) where R_H = c/H = √(3/Λ). "
-            "Cosmological horizon at r=R_H — exact analogy to Schwarzschild horizon. "
+            "Cosmological horizon at r=R_H - exact analogy to Schwarzschild horizon. "
             "Key difference: here the interior (r<R_H) is accessible to observer, "
             "and exterior (r>R_H) is behind the horizon (reverse of BH). "
             "H can change sign in more general models → two horizons. "
-            "Wheel: g_rr(r=R_H) = ⊥ — same algebra as Schwarzschild."
+            "Wheel: g_rr(r=R_H) = ⊥ - same algebra as Schwarzschild."
         ),
         notes="Isomorphism Schwarzschild ↔ de Sitter: same ⊥ algebraic structure, reversed physics",
     ))
 
-    # ── GR: ADM Energy — singularity at boundary (r→∞) ────────────────────────
+    # ── GR: ADM Energy - singularity at boundary (r→∞) ────────────────────────
 
     db.append(PhysicsEquation(
-        name="ADM energy — 1/r term as r→∞",
+        name="ADM energy - 1/r term as r→∞",
         domain="GR",
         expression=sp.Integer(1) / r,
         variables=[r],
@@ -824,18 +824,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "r=0 — central singularity (here as integral singularity at r→∞ is reverse problem)"},
+             "description": "r=0 - central singularity (here as integral singularity at r→∞ is reverse problem)"},
         ],
         physical_meaning=(
-            "ADM Energy (Arnowitt-Deser-Misner) — integral energy of the system in GR. "
+            "ADM Energy (Arnowitt-Deser-Misner) - integral energy of the system in GR. "
             "E_ADM = -(c²/16πG) ∮ (∂_j h_ii - ∂_i h_ij) dS^j. "
-            "Asymptotically: h_ij ≈ δ_ij(1 + 2GM/rc²) — 1/r term dominates as r→∞. "
+            "Asymptotically: h_ij ≈ δ_ij(1 + 2GM/rc²) - 1/r term dominates as r→∞. "
             "REVERSED PROBLEM: singularity not in center (r=0) but at integration boundary. "
-            "Wheel operates pointwise — 1/r at r=0 gives ⊥, at r→∞ the 1/r term→0 (regular). "
+            "Wheel operates pointwise - 1/r at r=0 gives ⊥, at r→∞ the 1/r term→0 (regular). "
             "Contrast with previous: here ⊥ in center is not ADM problem, "
             "but behavior at r→∞ determines the energy."
         ),
-        notes="Reversed problem: physics in limit r→∞, not r→0. Wheel works pointwise — different logic.",
+        notes="Reversed problem: physics in limit r→∞, not r→0. Wheel works pointwise - different logic.",
     ))
 
     # ── GR: Effective potential for photons (Schwarzschild photosphere) ───────
@@ -849,20 +849,20 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": r, "value": sp.S.Zero,
-             "description": "r=0 — physical singularity (V_ph → ∞)"},
+             "description": "r=0 - physical singularity (V_ph → ∞)"},
             {"var": r, "value": r_s,
-             "description": "r=r_s — horizon, f(r)=0 cancels 1/r², result V_ph=0"},
+             "description": "r=r_s - horizon, f(r)=0 cancels 1/r², result V_ph=0"},
         ],
         physical_meaning=(
-            "V_ph = f(r)/r² = (1-r_s/r)/r² — effective potential for photons (l=0, m=0) "
+            "V_ph = f(r)/r² = (1-r_s/r)/r² - effective potential for photons (l=0, m=0) "
             "in Schwarzschild (tortoise coordinate). "
             "Photosphere (unstable circular photon orbit) at r_ph = 3r_s/2, "
-            "where dV_ph/dr = 0: V_ph(r_ph) = 4/(27r_s²) — finite. "
+            "where dV_ph/dr = 0: V_ph(r_ph) = 4/(27r_s²) - finite. "
             "Complements Klein-Gordon V_eff for massless particles (m=0, l=0). "
-            "At r=r_s: V_ph = 0 (barrier disappears at horizon — analogy to KG). "
+            "At r=r_s: V_ph = 0 (barrier disappears at horizon - analogy to KG). "
             "At r=0: V_ph = ⊥ (physical singularity)."
         ),
-        notes="Complements KG V_eff for massless — m=0, l=0. Photosphere r_ph=3r_s/2 is regular.",
+        notes="Complements KG V_eff for massless - m=0, l=0. Photosphere r_ph=3r_s/2 is regular.",
     ))
 
     # ── QFT: Gluon propagator with QCD self-interaction ───────────────────────
@@ -880,18 +880,18 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": k2, "value": sp.S.Zero,
-             "description": "k²=0 — IR pole (zero-momentum photon, as in QED)"},
+             "description": "k²=0 - IR pole (zero-momentum photon, as in QED)"},
             {"var": k2, "value": mu_r**2 * sp.exp(-sp.Integer(1) / alpha_s),
-             "description": "QCD Landau pole — k²=μ²·exp(-1/αs), non-perturbative"},
+             "description": "QCD Landau pole - k²=μ²·exp(-1/αs), non-perturbative"},
         ],
         physical_meaning=(
             "Gluon propagator with one-loop correction in QCD: 1/(k²(1+αs·log(k²/μ²))). "
-            "TWO types of poles — both unknown to Wheel so far: "
+            "TWO types of poles - both unknown to Wheel so far: "
             "(1) k²=0: standard IR pole like in QED (expected ⊥). "
-            "(2) Landau pole: k²=μ²·exp(-1/αs) — LOGARITHMIC pole, "
+            "(2) Landau pole: k²=μ²·exp(-1/αs) - LOGARITHMIC pole, "
             "different type than algebraic poles 1/xⁿ. "
             "In QED counterpart is unphysical (10^280 GeV). "
-            "In QCD Landau pole is non-perturbative — appears at confinement scale (~ΛQCD). "
+            "In QCD Landau pole is non-perturbative - appears at confinement scale (~ΛQCD). "
             "Question: does Wheel correctly detect logarithmic poles? Unexplored territory."
         ),
         notes="NEW TYPE: logarithmic pole. Wheel tested only on algebraic poles so far.",
@@ -910,26 +910,28 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": gamma_d, "value": sp.S.Zero,
-             "description": "γ→0 — pole returns to real axis: ω=±ω₀ (classical resonance)"},
-            {"var": omega, "value": sp.I * gamma_d / 2 + sp.sqrt(omega0**2 - gamma_d**2 / 4),
-             "description": "Pole in upper complex half-plane (for γ>0)"},
+             "description": "γ→0 - pole returns to real axis: ω=±ω₀ (classical resonance)"},
+            {"var": omega, "value": -sp.I * gamma_d / 2 + sp.sqrt(omega0**2 - gamma_d**2 / 4),
+             "description": "Pole in lower complex half-plane (for γ>0) - retarded Green's function causality"},
         ],
         physical_meaning=(
-            "G(ω) = 1/(ω²-ω₀²+iγω) — Green function of damped oscillator. "
+            "G(ω) = 1/(ω²-ω₀²+iγω) - Green function of damped oscillator. "
             "Pole moves to complex plane when γ>0: "
-            "ω_± = ±√(ω₀²-γ²/4) + iγ/2. "
+            "ω_± = ±√(ω₀²-γ²/4) - iγ/2. "
+            "Pole lies in the LOWER half-plane (Im(ω)<0) for γ>0 - required for "
+            "causality of the retarded Green's function (response decays for t>0). "
             "BRIDGE between three objects: "
-            "(1) γ=0: classical resonance 1/(ω²-ω₀²) — already in db. "
+            "(1) γ=0: classical resonance 1/(ω²-ω₀²) - already in db. "
             "(2) γ→0⁺: Feynman's iε prescription! (iγω acts as iε). "
             "(3) γ>0: physical resonance width = quantum state lifetime (Breit-Wigner rule). "
-            "Wheel operates on real numbers — ω is real. "
+            "Wheel operates on real numbers - ω is real. "
             "Pole is complex → Wheel will NOT hit it via real substitution. "
             "This opens a question: how does Wheel deal with complex poles?"
         ),
         notes="CRITICAL: γ→0 is continuous transition to resonance↔iε. Complex poles are new territory for Wheel.",
     ))
 
-    # ── QFT: Mandelstam t-channel — singularity at momentum transfer t=0 ──────
+    # ── QFT: Mandelstam t-channel - singularity at momentum transfer t=0 ──────
 
     t_man = sp.Symbol("t_man", real=True)   # Mandelstam variable t
 
@@ -942,26 +944,26 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.DIVISION,
         known_singular=[
             {"var": t_man, "value": m**2,
-             "description": "t=m² — exchanged particle on-shell (Coulomb limit as m→0, t→0)"},
+             "description": "t=m² - exchanged particle on-shell (Coulomb limit as m→0, t→0)"},
             {"var": t_man, "value": sp.S.Zero,
-             "description": "t=0 at m=0 — Coulomb limit: exchange of massless boson at zero momentum"},
+             "description": "t=0 at m=0 - Coulomb limit: exchange of massless boson at zero momentum"},
         ],
         physical_meaning=(
             "Amplitude in t-channel 2→2 scattering: M ~ 1/(t-m²), t=(p1-p3)². "
-            "t is momentum transfer — always t≤0 for physical scattering. "
+            "t is momentum transfer - always t≤0 for physical scattering. "
             "DIFFERENCE from s-channel (Compton amplitude): "
             "s > 0 (center-of-mass energy), t ≤ 0 (momentum transfer). "
-            "As m→0: pole at t=0 — QED Coulomb limit (1/q² potential). "
+            "As m→0: pole at t=0 - QED Coulomb limit (1/q² potential). "
             "Wheel: 1/(t-m²) at t=m² → ⊥. At t=0, m=0 → ⊥. "
-            "Complements s-channel (Compton amplitude) — full picture of Mandelstam variables s,t."
+            "Complements s-channel (Compton amplitude) - full picture of Mandelstam variables s,t."
         ),
-        notes="Complements s-channel: now we have s and t. u-channel = s+t+u=Σm² — adds no new structure.",
+        notes="Complements s-channel: now we have s and t. u-channel = s+t+u=Σm² - adds no new structure.",
     ))
 
-    # ── THERMO: Bekenstein-Hawking Entropy — derivative dS/dM ─────────────────
+    # ── THERMO: Bekenstein-Hawking Entropy - derivative dS/dM ─────────────────
 
     db.append(PhysicsEquation(
-        name="BH entropy — dS/dM = 1/T_H ~ M",
+        name="BH entropy - dS/dM = 1/T_H ~ M",
         domain="THERMO",
         expression=8 * sp.pi * G * M * kB / (hbar * c**3),
         variables=[M],
@@ -969,11 +971,11 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": M, "value": sp.S.Zero,
-             "description": "M=0 — no black hole, dS/dM → 0 (but T_H=1/(dS/dM)→⊥)"},
+             "description": "M=0 - no black hole, dS/dM → 0 (but T_H=1/(dS/dM)→⊥)"},
         ],
         physical_meaning=(
             "Bekenstein-Hawking Entropy: S_BH = A/(4l_P²) = 4πGM²k_B/(ħc). "
-            "dS/dM = 8πGMk_B/(ħc³) = 1/T_H — thermodynamic definition of temperature. "
+            "dS/dM = 8πGMk_B/(ħc³) = 1/T_H - thermodynamic definition of temperature. "
             "S_BH itself is finite and well-defined (no singularity in S). "
             "But: T_H = (dS/dM)^(-1) = ħc³/(8πGMk_B) → ⊥ at M=0. "
             "CONNECTION to Hawking temperature (already in db): dS/dM = 1/T_H. "
@@ -998,23 +1000,23 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.SINGULARITY,
         known_singular=[
             {"var": E_sym, "value": E_c,
-             "description": "E=E_c — van Hove point: energy band curvature = 0, D(E)→∞"},
+             "description": "E=E_c - van Hove point: energy band curvature = 0, D(E)→∞"},
         ],
         physical_meaning=(
-            "D(E) ~ 1/√|E-E_c| — density of states at van Hove points in a solid. "
+            "D(E) ~ 1/√|E-E_c| - density of states at van Hove points in a solid. "
             "Appears when ∇_k E(k) = 0 (flat bottom or top of a band). "
             "Physically: infinite density of states = accumulation of orbitals with same energy. "
             "Direct consequence for: superconductivity (BCS), van Hove effect in optics, "
             "specific heat anomalies. "
             "COMPARISON with specific heat ~1/|T-Tc|: "
             "the latter diverges as 1/x (exponent α=1, mean field), "
-            "this one as 1/√x (exponent α=1/2 — different universality class). "
-            "Wheel: D(E_c) = ⊥ — instability point in band structure."
+            "this one as 1/√x (exponent α=1/2 - different universality class). "
+            "Wheel: D(E_c) = ⊥ - instability point in band structure."
         ),
-        notes="Exponent 1/2 (van Hove) vs 1 (mean field specific heat) — Wheel treats identically: ⊥.",
+        notes="Exponent 1/2 (van Hove) vs 1 (mean field specific heat) - Wheel treats identically: ⊥.",
     ))
 
-    # ── MATH: sinc²(x) = sin²(x)/x² — quadratic counterexample ────────────────
+    # ── MATH: sinc²(x) = sin²(x)/x² - quadratic counterexample ────────────────
 
     db.append(PhysicsEquation(
         name="sinc²(x) = sin²(x)/x²",
@@ -1025,10 +1027,10 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.LIMIT,
         known_singular=[
             {"var": x, "value": sp.S.Zero,
-             "description": "0/0 form — limit = 1 (same as sinc, because lim sinc²=lim²sinc=1²=1)"},
+             "description": "0/0 form - limit = 1 (same as sinc, because lim sinc²=lim²sinc=1²=1)"},
         ],
         physical_meaning=(
-            "sinc²(x) = sin²(x)/x² — square of sinc function. "
+            "sinc²(x) = sin²(x)/x² - square of sinc function. "
             "Appears in: diffraction intensity through a slit (I ~ sinc²), "
             "power spectrum of a rectangular signal, signal correlation. "
             "Limit: lim(x→0) sin²(x)/x² = [lim sinc(x)]² = 1² = 1. "
@@ -1037,10 +1039,10 @@ def build_database() -> list[PhysicsEquation]:
             "sin(x) ≈ x - x³/6 → sin²(x) ≈ x² - x⁴/3 → sin²(x)/x² ≈ 1 - x²/3 → 1. "
             "Wheel_calculus should return 1, not ⊥."
         ),
-        notes="Counterexample #2 for wheel_calculus.py — higher order Taylor. Result should be: ⊥→1.",
+        notes="Counterexample #2 for wheel_calculus.py - higher order Taylor. Result should be: ⊥→1.",
     ))
 
-    # ── MATH: (1-cos(x))/x² — cosine counterexample ───────────────────────────
+    # ── MATH: (1-cos(x))/x² - cosine counterexample ───────────────────────────
 
     db.append(PhysicsEquation(
         name="(1 - cos(x))/x²",
@@ -1051,10 +1053,10 @@ def build_database() -> list[PhysicsEquation]:
         priority=Priority.LIMIT,
         known_singular=[
             {"var": x, "value": sp.S.Zero,
-             "description": "0/0 form — limit = 1/2 (different result than sinc!)"},
+             "description": "0/0 form - limit = 1/2 (different result than sinc!)"},
         ],
         physical_meaning=(
-            "(1-cos(x))/x² — appears in: "
+            "(1-cos(x))/x² - appears in: "
             "kinetic energy expansion (1-cos(ka)) in tight-binding model, "
             "phase accumulated by a qubit (geometric Berry phase), "
             "corrections to wave dispersion. "
@@ -1064,7 +1066,7 @@ def build_database() -> list[PhysicsEquation]:
             "KEY DIFFERENCE from sinc and sinc²: limit ≠ 1, limit = 1/2. "
             "Test for wheel_calculus.py: will module return 1/2 and not ⊥?"
         ),
-        notes="Counterexample #3 for wheel_calculus.py — limit = 1/2, not 1. Different Taylor expansion.",
+        notes="Counterexample #3 for wheel_calculus.py - limit = 1/2, not 1. Different Taylor expansion.",
     ))
 
     return db
@@ -1092,7 +1094,7 @@ class EquationsDB:
 
     def print_catalogue(self) -> None:
         print("═" * 68)
-        print("  WHEELPHYSICS — Catalogue of physical equations")
+        print("  WHEELPHYSICS - Catalogue of physical equations")
         print("═" * 68)
 
         domains = {}
