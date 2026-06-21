@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Mariusz Rossa
+# Copyright (c) 2026 Mariusz "Vidi" Rossa
 # Licensed under the MIT License — see LICENSE file for details.
 
 """
@@ -126,7 +126,7 @@ def run_research_summary() -> None:
             "K(-r) = K(+r) — singularity symmetry suggests mirror solution",
         ],
         "Method limitations (discovered and addressed)": [
-            "Wheel ≠ limit theory — solved by wheel_calculus.py (tripartite division)",
+            "Wheel ≠ limit theory — solved by wheel_calculus.py (five-fold division)",
             "sinc: Wheel=⊥, wheel_calculus=1  |  (1-cos)/x²: Wheel=⊥, wheel_calculus=1/2",
             "UV divergences live in ∫d⁴k integrals — Wheel operates pointwise (open)",
             "Christoffel symbols are frame-dependent: their ⊥ might be an artifact",
@@ -142,7 +142,7 @@ def run_research_summary() -> None:
 
     for section, items in findings.items():
         icon = {"Confirmed": "✓", "Working hypotheses": "?",
-                "Method limitations (discovered)": "!", "Next steps": "→"}.get(section, "•")
+                "Method limitations (discovered and addressed)": "!", "Next steps": "→"}.get(section, "•")
         print(f"  [{icon}] {section}:")
         for item in items:
             print(f"      • {item}")
